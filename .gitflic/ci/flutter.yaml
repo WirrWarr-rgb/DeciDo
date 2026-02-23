@@ -1,0 +1,45 @@
+name: Flutter CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      # - name: Setup Flutter
+      #   uses: actions/setup-flutter@v2
+      #   with:
+      #     flutter-version: '3.x'
+      #     channel: 'stable'
+      
+      # - name: Flutter Doctor
+      #   run: flutter doctor -v
+      #   working-directory: ./mobile
+      
+      # - name: Install Dependencies
+      #   run: flutter pub get
+      #   working-directory: ./mobile
+      
+      # - name: Run Analyzer
+      #   run: flutter analyze
+      #   working-directory: ./mobile
+      
+      # - name: Run Tests
+      #   run: flutter test
+      #   working-directory: ./mobile
+      
+      # - name: Build APK
+      #   run: flutter build apk --debug
+      #   working-directory: ./mobile
