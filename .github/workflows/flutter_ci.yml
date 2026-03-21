@@ -1,0 +1,52 @@
+name: Flutter CI
+
+# Условия запуска этого скрипты
+on:
+  # Запускать при пуше в ветки main и develop
+  push:
+    branches: [ main, develop ]
+  # Запускать при создании Pull Request в main или develop
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    # Запускать на виртуальной машине с Ubuntu
+    runs-on: ubuntu-latest
+
+    # Шаги, которые нужно выполнить
+    steps:
+    # 1. Склонировать код репозитория
+    - uses: actions/checkout@v4
+
+    # # 2. Установить Flutter SDK
+    # - name: Setup Flutter
+    #   uses: subosito/flutter-action@v2
+    #   with:
+    #     flutter-version: '3.x' # !!!Указать версию Flutter, например '3.16.0'!!!
+    #     channel: 'stable'
+
+    # # 3. Проверить, что Flutter установлен корректно
+    # - name: Flutter Doctor
+    #   run: flutter doctor -v
+
+    # # 4. Перейти в папку mobile и получить зависимости
+    # - name: Install Dependencies
+    #   run: flutter pub get
+    #   working-directory: ./mobile # Указываем, что команды выполнять в папке mobile
+
+    # # 5. Запустить линтер (проверка стиля кода)
+    # - name: Run Analyzer
+    #   run: flutter analyze
+    #   working-directory: ./mobile
+
+    # # 6. Запустить тесты (если они есть)
+    # - name: Run Tests
+    #   run: flutter test
+    #   working-directory: ./mobile
+
+    # # 7. Попытаться собрать приложение (например, отладочную версию для Android)
+    # # проверка, что сборка проекта не сломана.
+    # - name: Build APK (Debug)
+    #   run: flutter build apk --debug
+    #   working-directory: ./mobile
