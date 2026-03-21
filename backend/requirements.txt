@@ -1,0 +1,23 @@
+# core
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# database
+sqlalchemy==2.0.36
+alembic==1.14.1
+psycopg2-binary==2.9.10  # драйвер для PostgreSQL
+asyncpg==0.30.0          # асинхронный драйвер для PostgreSQL
+greenlet==3.1.1          # для asyncpg
+
+# auth & security
+python-jose[cryptography]==3.3.0  # для JWT
+passlib[bcrypt]==1.7.4            # для хеширования паролей
+python-multipart==0.0.20          # для обработки form data (логин)
+
+# validation & settings
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-dotenv==1.0.1
+
+# utils
+httpx==0.28.1  # для возможных внешних запросов
