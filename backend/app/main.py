@@ -1,13 +1,15 @@
-# Точка входа в приложение
-
 from fastapi import FastAPI
-from app.api.v1.endpoints import auth
+from app.api.v1 import router as v1_router
 
 app = FastAPI(title="Decido API", version="1.0.0")
 
-# Подключаем роутеры
-app.include_router(auth.router)
+# Подключаем v1 API
+app.include_router(v1_router)
 
 @app.get("/")
 async def root():
     return {"message": "Hello from Decido API"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
