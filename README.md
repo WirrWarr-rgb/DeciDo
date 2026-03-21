@@ -1,6 +1,5 @@
 # DeciDo
-
-[![Status](https://img.shields.io/badge/Status-In%20Development-orange.svg)](https://gitflic.ru/project/wirrwarr/decido)
+[![Status](https://img.shields.io/badge/Status-In%20Development-orange.svg)](https://github.com/WirrWarr-rgb/DeciDo)
 
 A mobile application designed to simplify and enhance decision-making processes for groups and individuals
 
@@ -54,3 +53,8 @@ This project is being developed as part of university course.
 
 ## License
 This project is licensed under the MIT License.
+
+## Credit
+- [wirrwarr](https://github.com/WirrWarr-rgb)
+- [SerafimaLoisen](https://github.com/SerafimaLoisen)
+- [VVolfire](https://github.com/VVolfire)
