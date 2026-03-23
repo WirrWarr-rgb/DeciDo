@@ -1,5 +1,5 @@
 
-import '../../../../config/app_config.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -40,14 +40,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _errorMessage = null;
     });
     
-    final success = await ref.read(authControllerProvider).login(
+    final error = await ref.read(authControllerProvider).login(
       email: _emailController.text.trim(),
       password: _passwordController.text,
     );
     
     setState(() => _isLoading = false);
     
-    if (success && mounted) {
+    if (error == null && mounted) {
       final username = ref.read(authStateProvider)?.username ?? '';
       context.go(RouteNames.home);
       
@@ -59,7 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
     } else if (mounted) {
       setState(() {
-        _errorMessage = 'Неверный email или пароль';
+        _errorMessage = error ?? 'Неверный email или пароль';
       });
     }
   }
@@ -93,7 +93,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 48),
                     
-                    // Отображаем ошибку если есть
                     if (_errorMessage != null)
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -172,34 +171,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     
-                    const SizedBox(height: 20),
-                    
-                    // Индикатор режима работы
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 16,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Режим: ${AppConfig.useMocks ? "МОК" : "РЕАЛЬНЫЙ БЭКЕНД"}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                     const SizedBox(height: 20),
                   ],
                 ),

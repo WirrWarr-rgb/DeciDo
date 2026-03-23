@@ -1,5 +1,6 @@
 
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -17,7 +18,19 @@ Future<void> main() async {
   // Инициализируем Dio клиент
   DioClient.init();
   
+  testBackendConnection();
+
   runApp(const ProviderScope(child: MyApp()));
+}
+
+// Добавь временно в main.dart для тестирования
+void testBackendConnection() async {
+  try {
+    final response = await Dio().get('http://localhost:8000/health');
+    print('Backend is reachable: ${response.data}');
+  } catch (e) {
+    print('Backend connection failed: $e');
+  }
 }
 
 class MyApp extends ConsumerStatefulWidget {

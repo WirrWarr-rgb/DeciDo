@@ -9,7 +9,6 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/custom_button.dart';
 import '../../../shared/widgets/custom_text_field.dart';
 import '../../../shared/widgets/loading_widget.dart';
-import '../../../../config/app_config.dart';  // ← Добавляем (опционально, если хочешь показывать режим)
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -34,37 +33,41 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     super.dispose();
   }
   
-  Future<void> _handleRegister() async {
-    if (!_formKey.currentState!.validate()) return;
+Future<void> _handleRegister() async {
+  if (!_formKey.currentState!.validate()) return;
+  
+  setState(() {
+    _isLoading = true;
+    _errorMessage = null;
+  });
+  
+  final error = await ref.read(authControllerProvider).register(
+    username: _usernameController.text.trim(),
+    email: _emailController.text.trim(),
+    password: _passwordController.text,
+  );
+  
+  setState(() => _isLoading = false);
+  
+  if (error == null && mounted) {
+    context.go(RouteNames.home);
     
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Регистрация успешна! Добро пожаловать!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  } else if (mounted) {
+    // Показываем подробную ошибку
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _errorMessage = error ?? 'Ошибка регистрации. Попробуйте позже.';
     });
     
-    final success = await ref.read(authControllerProvider).register(
-      username: _usernameController.text.trim(),
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-    );
-    
-    setState(() => _isLoading = false);
-    
-    if (success && mounted) {
-      context.go(RouteNames.home);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Добро пожаловать!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else if (mounted) {
-      setState(() {
-        _errorMessage = 'Пользователь с таким ником или email уже существует';
-      });
-    }
+    // Также выводим в консоль для отладки
+    print('Registration error: $error');
   }
+}
   
   @override
   Widget build(BuildContext context) {
@@ -95,7 +98,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     const SizedBox(height: 48),
                     
-                    // Отображаем ошибку если есть
                     if (_errorMessage != null)
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -190,35 +192,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
-
                     
-                    // Опционально: показываем режим работы
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 16,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Режим: ${AppConfig.useMocks ? "МОК" : "РЕАЛЬНЫЙ БЭКЕНД"}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                     const SizedBox(height: 20),
                   ],
                 ),

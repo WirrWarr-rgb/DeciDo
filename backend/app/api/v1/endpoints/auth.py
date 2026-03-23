@@ -16,6 +16,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     """Регистрация нового пользователя."""
+    # Проверяем, существует ли пользователь с таким email
     existing_user = await db.execute(
         select(User).where(User.email == user_data.email)
     )
@@ -25,6 +26,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
             detail="User with this email already exists"
         )
     
+    # Проверяем, существует ли пользователь с таким username
     existing_username = await db.execute(
         select(User).where(User.username == user_data.username)
     )
@@ -49,24 +51,26 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(
-    username: str = Form(...),
+    email: str = Form(...),
     password: str = Form(...),
     db: AsyncSession = Depends(get_db)
 ):
-    """Вход пользователя. Возвращает JWT токен."""
+    """Вход пользователя по email и паролю. Возвращает JWT токен."""
+    # Ищем пользователя по email
     result = await db.execute(
-        select(User).where(User.username == username)
+        select(User).where(User.email == email)
     )
     user = result.scalar_one_or_none()
     
     if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token = create_access_token(data={"sub": user.username})
+    # В токен кладем email
+    access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 security = HTTPBearer()
@@ -89,14 +93,15 @@ async def get_current_user(
             settings.SECRET_KEY, 
             algorithms=[settings.ALGORITHM]
         )
-        username: str = payload.get("sub")
-        if username is None:
+        email: str = payload.get("sub")
+        if email is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
     
+    # Ищем пользователя по email
     result = await db.execute(
-        select(User).where(User.username == username)
+        select(User).where(User.email == email)
     )
     user = result.scalar_one_or_none()
     

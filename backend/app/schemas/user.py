@@ -9,7 +9,6 @@ class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
 
 class UserUpdate(BaseModel):
-    """Схема для обновления пользователя"""
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     email: Optional[EmailStr] = None
 
@@ -25,4 +24,4 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 class TokenData(BaseModel):
-    username: str | None = None
+    email: str | None = None
