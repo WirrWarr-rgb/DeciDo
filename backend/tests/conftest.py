@@ -97,13 +97,15 @@ async def test_user(db_session, test_user_data):
 async def auth_token(client, test_user_data, db_session):
     """Получает JWT токен для тестового пользователя."""
     # Убедимся, что пользователь существует
+    from sqlalchemy import select
+    from app.models.user import User
+    
     result = await db_session.execute(
-        select(User).where(User.username == test_user_data["username"])
+        select(User).where(User.email == test_user_data["email"])  # <-- Поиск по email
     )
     user = result.scalar_one_or_none()
     
     if not user:
-        # Создаем пользователя если его нет
         user = User(
             username=test_user_data["username"],
             email=test_user_data["email"],
@@ -116,15 +118,11 @@ async def auth_token(client, test_user_data, db_session):
     response = await client.post(
         "/api/v1/auth/login",
         data={
-            "username": test_user_data["username"],
+            "email": test_user_data["email"],  # <-- Используем email
             "password": test_user_data["password"]
         },
         headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
-    
-    # Добавим отладочную информацию
-    if response.status_code != 200:
-        print(f"Login failed: {response.status_code} - {response.text}")
     
     data = response.json()
     return data.get("access_token")

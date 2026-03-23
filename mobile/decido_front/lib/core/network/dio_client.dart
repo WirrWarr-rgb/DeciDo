@@ -1,4 +1,4 @@
-//# Настройка Dio (интерцепторы, базовый URL)
+
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -18,6 +18,16 @@ class DioClient {
   static final FlutterSecureStorage _storage = const FlutterSecureStorage();
   
   static void init() {
+    // Добавляем логгер для отладки
+    _dio.interceptors.add(LogInterceptor(
+      request: true,
+      requestHeader: true,
+      requestBody: true,
+      responseHeader: true,
+      responseBody: true,
+      error: true,
+    ));
+    
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = await _storage.read(key: 'access_token');
@@ -27,8 +37,10 @@ class DioClient {
         return handler.next(options);
       },
       onError: (DioException error, handler) async {
+        print('Dio Error: ${error.message}');
+        print('Dio Error Response: ${error.response}');
+        
         if (error.response?.statusCode == 401) {
-          // Попытка обновить токен
           final newToken = await _refreshToken();
           if (newToken != null) {
             error.requestOptions.headers['Authorization'] = 'Bearer $newToken';
@@ -61,10 +73,17 @@ class DioClient {
   static Future<Response> get(
     String path, {
     Map<String, dynamic>? queryParameters,
+    Options? options,
   }) async {
     try {
-      return await _dio.get(path, queryParameters: queryParameters);
+      return await _dio.get(
+        path,
+        queryParameters: queryParameters,
+        options: options,
+      );
     } on DioException catch (e) {
+      print('GET Error: ${e.message}');
+      print('GET Error Response: ${e.response}');
       throw ApiException.fromDioError(e);
     }
   }
@@ -73,10 +92,19 @@ class DioClient {
     String path, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
+    Options? options,
   }) async {
     try {
-      return await _dio.post(path, data: data, queryParameters: queryParameters);
+      return await _dio.post(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
     } on DioException catch (e) {
+      print('POST Error: ${e.message}');
+      print('POST Error Response: ${e.response}');
+      print('POST Error Data: ${e.response?.data}');
       throw ApiException.fromDioError(e);
     }
   }
@@ -85,10 +113,17 @@ class DioClient {
     String path, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
+    Options? options,
   }) async {
     try {
-      return await _dio.put(path, data: data, queryParameters: queryParameters);
+      return await _dio.put(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
     } on DioException catch (e) {
+      print('PUT Error: ${e.message}');
       throw ApiException.fromDioError(e);
     }
   }
@@ -96,10 +131,16 @@ class DioClient {
   static Future<Response> delete(
     String path, {
     Map<String, dynamic>? queryParameters,
+    Options? options,
   }) async {
     try {
-      return await _dio.delete(path, queryParameters: queryParameters);
+      return await _dio.delete(
+        path,
+        queryParameters: queryParameters,
+        options: options,
+      );
     } on DioException catch (e) {
+      print('DELETE Error: ${e.message}');
       throw ApiException.fromDioError(e);
     }
   }

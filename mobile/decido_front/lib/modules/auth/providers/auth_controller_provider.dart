@@ -13,7 +13,7 @@ class AuthController {
   
   AuthController(this._ref);
   
-  Future<bool> register({
+  Future<String?> register({
     required String username,
     required String email,
     required String password,
@@ -26,14 +26,13 @@ class AuthController {
       );
       
       _ref.read(authStateProvider.notifier).state = user;
-      return true;
+      return null; // Нет ошибки
     } catch (e) {
-      print('Register error: $e');
-      return false;
+      return e.toString();
     }
   }
   
-  Future<bool> login({
+  Future<String?> login({
     required String email,
     required String password,
   }) async {
@@ -44,18 +43,21 @@ class AuthController {
       );
       
       _ref.read(authStateProvider.notifier).state = user;
-      return true;
+      return null; // Нет ошибки
     } catch (e) {
-      print('Login error: $e');
-      return false;
+      return e.toString();
     }
   }
   
   Future<void> checkAuth() async {
     final isAuth = await _repository.checkAuth();
     if (isAuth) {
-      final user = await _repository.getCurrentUser();
-      _ref.read(authStateProvider.notifier).state = user;
+      try {
+        final user = await _repository.getCurrentUser();
+        _ref.read(authStateProvider.notifier).state = user;
+      } catch (e) {
+        _ref.read(authStateProvider.notifier).state = null;
+      }
     } else {
       _ref.read(authStateProvider.notifier).state = null;
     }
