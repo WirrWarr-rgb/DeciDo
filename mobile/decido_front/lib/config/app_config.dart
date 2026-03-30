@@ -2,7 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConfig {
   // Режим работы: true - использовать моки, false - реальный бэкенд
-  static bool useMocks = false;
+  static bool useMocks = true;
   
   // Задержка для имитации сетевых запросов (мс)
   static const int mockDelay = 500;
