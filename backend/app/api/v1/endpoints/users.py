@@ -66,3 +66,23 @@ async def search_users(
     )
     users = result.scalars().all()
     return users
+
+
+# ДОБАВИЛ СЮДА ИЗ-ЗА ПОИСКА ПОЛЬЗОВАТЕЛЕЙ ПРИ ЧТЕНИИ ЗАПРОСОВ В ДРУЗЬЯ
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user_by_id(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Получить пользователя по ID."""
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    return user

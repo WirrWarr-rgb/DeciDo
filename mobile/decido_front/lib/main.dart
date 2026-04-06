@@ -53,16 +53,34 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp> {
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(authControllerProvider).checkAuth();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    // Ждем проверки авторизации
+    await ref.read(authControllerProvider).checkAuth();
+    setState(() {
+      _isLoading = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
     final router = ref.watch(appRouterProvider);
     
     return MaterialApp.router(

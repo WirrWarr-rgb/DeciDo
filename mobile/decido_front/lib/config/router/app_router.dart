@@ -14,6 +14,9 @@ import '../../modules/social/presentation/screens/create_group_screen.dart';
 import '../../modules/social/presentation/screens/search_people_screen.dart';
 import '../../modules/list/presentation/screens/my_lists_screen.dart';
 import '../../modules/list/presentation/screens/edit_list_screen.dart';
+import '../../modules/social/presentation/screens/friends_screen.dart';
+import '../../modules/social/presentation/screens/friend_requests_screen.dart';
+import '../../modules/social/presentation/screens/search_friends_screen.dart';
 import 'route_names.dart';  // Добавляем импорт route_names
 
 // Временно убираем несуществующие экраны
@@ -27,18 +30,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authStateProvider);
       final isAuth = authState != null;
       
+      print('Redirect check - isAuth: $isAuth, location: ${state.matchedLocation}');
+      
       final isAuthRoute = state.matchedLocation == RouteNames.login ||
           state.matchedLocation == RouteNames.register ||
           state.matchedLocation == RouteNames.onboarding;
       
       if (isAuth && isAuthRoute) {
+        print('Redirecting to home');
         return RouteNames.home;
       }
       
       if (!isAuth && !isAuthRoute && state.matchedLocation != RouteNames.onboarding) {
+        print('Redirecting to login');
         return RouteNames.login;
       }
       
+      print('No redirect needed');
       return null;
     },
     routes: [
@@ -104,6 +112,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id']!;
           return EditListScreen(listId: id);
         },
+      ),
+
+
+      // Друзья
+      GoRoute(
+        path: RouteNames.friends,
+        name: 'friends',
+        builder: (context, state) => const FriendsScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.friendRequests,
+        name: 'friendRequests',
+        builder: (context, state) => const FriendRequestsScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.searchFriends,
+        name: 'searchFriends',
+        builder: (context, state) => const SearchFriendsScreen(),
       ),
       
       // Поиск

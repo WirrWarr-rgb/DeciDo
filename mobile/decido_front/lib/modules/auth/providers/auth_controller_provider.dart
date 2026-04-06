@@ -1,5 +1,3 @@
-
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repository/auth_repository.dart';
 import '../models/user_model.dart';
@@ -26,8 +24,9 @@ class AuthController {
       );
       
       _ref.read(authStateProvider.notifier).state = user;
-      return null; // Нет ошибки
+      return null;
     } catch (e) {
+      print('Register error: $e');
       return e.toString();
     }
   }
@@ -43,24 +42,32 @@ class AuthController {
       );
       
       _ref.read(authStateProvider.notifier).state = user;
-      return null; // Нет ошибки
+      return null;
     } catch (e) {
+      print('Login error: $e');
       return e.toString();
     }
   }
   
   Future<void> checkAuth() async {
+    print('checkAuth started');
     final isAuth = await _repository.checkAuth();
+    print('isAuth: $isAuth');
+    
     if (isAuth) {
       try {
         final user = await _repository.getCurrentUser();
+        print('User restored: ${user.username}');
         _ref.read(authStateProvider.notifier).state = user;
       } catch (e) {
+        print('Failed to restore user: $e');
         _ref.read(authStateProvider.notifier).state = null;
       }
     } else {
+      print('Not authenticated');
       _ref.read(authStateProvider.notifier).state = null;
     }
+    print('checkAuth completed');
   }
   
   Future<void> logout() async {

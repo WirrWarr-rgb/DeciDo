@@ -49,6 +49,17 @@ class HomeScreen extends ConsumerWidget {
               icon: Icons.list,
               width: 200,
             ),
+            const SizedBox(height: 48),
+
+            // Кнопка перехода к друзьям
+            CustomButton(
+              text: 'Мои друзья',
+              onPressed: () {
+                context.push(RouteNames.friends);
+              },
+              icon: Icons.people,
+              width: 200,
+            ),
           ],
         ),
       ),

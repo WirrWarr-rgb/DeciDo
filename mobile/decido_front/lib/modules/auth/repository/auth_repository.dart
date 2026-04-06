@@ -1,6 +1,5 @@
-
-
 import 'package:decido_front/config/env/env_config.dart';
+import 'package:decido_front/core/storage/secure_storage.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../config/app_config.dart';
@@ -31,79 +30,54 @@ class AuthRepository {
     }
   }
   
-Future<UserModel> _realRegister({
-  required String username,
-  required String email,
-  required String password,
-}) async {
-  try {
-    final response = await DioClient.post('/auth/register', data: {
-      'username': username,
-      'email': email,
-      'password': password,
-    });
-    
-    print('Register response: ${response.data}');
-    
-    final userData = response.data;
-    final user = UserModel.fromJson(userData);
-    
-    await _loginAfterRegistration(
-      email: email,
-      password: password,
-    );
-    
-    return user;
-  } on DioException catch (e) {
-    print('DioException in register: ${e.message}');
-    print('Response status: ${e.response?.statusCode}');
-    print('Response data: ${e.response?.data}');
-    
-    if (e.response?.statusCode == 422) {
-      final errors = e.response?.data;
-      if (errors != null && errors['detail'] != null) {
-        final errorMessages = (errors['detail'] as List)
-            .map((err) => err['msg'] as String)
-            .join(', ');
-        throw Exception(errorMessages);
-      }
-    } else if (e.response?.statusCode == 405) {
-      throw Exception('CORS Error: Сервер не принимает запросы. Проверьте настройки CORS на бэкенде.');
-    } else if (e.type == DioExceptionType.connectionTimeout) {
-      throw Exception('Таймаут подключения. Проверьте, запущен ли бэкенд.');
-    } else if (e.type == DioExceptionType.connectionError) {
-      throw Exception('Нет подключения к серверу. Проверьте, запущен ли бэкенд на ${EnvConfig.apiBaseUrl}');
-    }
-    
-    throw Exception('Ошибка регистрации: ${e.message}');
-  } catch (e) {
-    print('Unexpected error in register: $e');
-    throw Exception('Ошибка регистрации: $e');
-  }
-}
-  
-  Future<void> _loginAfterRegistration({
+  Future<UserModel> _realRegister({
+    required String username,
     required String email,
     required String password,
   }) async {
-    // Используем FormData для application/x-www-form-urlencoded
-    final formData = FormData.fromMap({
-      'email': email,
-      'password': password,
-    });
-    
-    final response = await DioClient.post(
-      '/auth/login',
-      data: formData,
-      options: Options(
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      ),
-    );
-    
-    final token = TokenModel.fromJson(response.data);
-    await _storage.write(key: 'access_token', value: token.accessToken);
+    try {
+      final response = await DioClient.post('/auth/register', data: {
+        'username': username,
+        'email': email,
+        'password': password,
+      });
+      
+      print('Register response: ${response.data}');
+      
+      // API возвращает Token
+      final token = TokenModel.fromJson(response.data);
+      await SecureStorage.saveAccessToken(token.accessToken);
+      
+      // Получаем данные пользователя
+      final user = await getCurrentUser();
+      return user;
+      
+    } on DioException catch (e) {
+      print('DioException in register: ${e.message}');
+      print('Response status: ${e.response?.statusCode}');
+      print('Response data: ${e.response?.data}');
+      
+      if (e.response?.statusCode == 422) {
+        final errors = e.response?.data;
+        if (errors != null && errors['detail'] != null) {
+          final errorMessages = (errors['detail'] as List)
+              .map((err) => err['msg'] as String)
+              .join(', ');
+          throw Exception(errorMessages);
+        }
+      } else if (e.response?.statusCode == 405) {
+        throw Exception('CORS Error: Сервер не принимает запросы. Проверьте настройки CORS на бэкенде.');
+      } else if (e.type == DioExceptionType.connectionTimeout) {
+        throw Exception('Таймаут подключения. Проверьте, запущен ли бэкенд.');
+      } else if (e.type == DioExceptionType.connectionError) {
+        throw Exception('Нет подключения к серверу. Проверьте, запущен ли бэкенд на ${EnvConfig.apiBaseUrl}');
+      }
+      
+      throw Exception('Ошибка регистрации: ${e.message}');
+    } catch (e) {
+      print('Unexpected error in register: $e');
+      throw Exception('Ошибка регистрации: $e');
+    }
   }
   
   Future<UserModel> login({
@@ -128,7 +102,6 @@ Future<UserModel> _realRegister({
     required String password,
   }) async {
     try {
-      // Используем FormData для application/x-www-form-urlencoded
       final formData = FormData.fromMap({
         'email': email,
         'password': password,
@@ -145,9 +118,8 @@ Future<UserModel> _realRegister({
       );
       
       final token = TokenModel.fromJson(response.data);
-      await _storage.write(key: 'access_token', value: token.accessToken);
+      await SecureStorage.saveAccessToken(token.accessToken);
       
-      // Получаем данные пользователя
       return await getCurrentUser();
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
@@ -159,7 +131,7 @@ Future<UserModel> _realRegister({
   
   Future<UserModel> getCurrentUser() async {
     if (AppConfig.useMocks) {
-      final username = await _storage.read(key: 'current_user');
+      final username = await SecureStorage.getCurrentUser();
       if (username == null) throw Exception('Не авторизован');
       
       final user = AppConfig.users[username];
@@ -174,9 +146,12 @@ Future<UserModel> _realRegister({
     } else {
       try {
         final response = await DioClient.get('/users/me');
+        print('getCurrentUser response: ${response.data}');
         return UserModel.fromJson(response.data);
       } on DioException catch (e) {
+        print('getCurrentUser error: ${e.message}');
         if (e.response?.statusCode == 401) {
+          await SecureStorage.clear();
           throw Exception('Сессия истекла');
         }
         throw Exception('Ошибка получения профиля: ${e.message}');
@@ -185,27 +160,31 @@ Future<UserModel> _realRegister({
   }
   
   Future<bool> checkAuth() async {
-    final token = await _storage.read(key: 'access_token');
-
+    final token = await SecureStorage.getAccessToken();
     print('CheckAuth: token = $token');
     
-    if (token == null) return false;
+    if (token == null || token.isEmpty) {
+      print('No token found');
+      return false;
+    }
     
     if (AppConfig.useMocks) {
       return token.startsWith('mock_access_token');
     } else {
       try {
-        await DioClient.get('/users/me');
+        final response = await DioClient.get('/users/me');
+        print('User data: ${response.data}');
         return true;
       } catch (e) {
+        print('Token validation failed: $e');
+        await SecureStorage.clear();
         return false;
       }
     }
   }
   
   Future<void> logout() async {
-    await _storage.delete(key: 'access_token');
-    await _storage.delete(key: 'current_user');
+    await SecureStorage.clear();
   }
   
   // Мок-методы для тестирования
@@ -226,8 +205,8 @@ Future<UserModel> _realRegister({
     AppConfig.addUser(username, email, password);
     
     final accessToken = 'mock_access_token_${DateTime.now().millisecondsSinceEpoch}';
-    await _storage.write(key: 'access_token', value: accessToken);
-    await _storage.write(key: 'current_user', value: username);
+    await SecureStorage.saveAccessToken(accessToken);
+    await SecureStorage.saveCurrentUser(username);
     
     return UserModel(
       id: AppConfig.users[username]!['id'] as int,
@@ -259,12 +238,12 @@ Future<UserModel> _realRegister({
     }
     
     final accessToken = 'mock_access_token_${DateTime.now().millisecondsSinceEpoch}';
-    await _storage.write(key: 'access_token', value: accessToken);
-    await _storage.write(key: 'current_user', value: foundUsername);
+    await SecureStorage.saveAccessToken(accessToken);
+    await SecureStorage.saveCurrentUser(foundUsername!);
     
     return UserModel(
       id: foundUser['id'] as int,
-      username: foundUsername!,
+      username: foundUsername,
       email: foundUser['email'] as String,
       isActive: foundUser['is_active'] as bool,
     );
