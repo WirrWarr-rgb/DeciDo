@@ -35,7 +35,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 
     try {
       final friends = await _repository.getFriends();
-      // Сортируем по алфавиту
       friends.sort((a, b) => a.username.toLowerCase().compareTo(b.username.toLowerCase()));
       setState(() {
         _friends = friends;
@@ -91,75 +90,134 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Друзья'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: () {
-              context.push('/search-friends').then((_) => _loadFriends());
-            },
-            tooltip: 'Найти друзей',
+      body: Container(
+        width: 412,
+        height: 892,
+        clipBehavior: Clip.antiAlias,
+        decoration: ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Кнопка перехода к заявкам
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                context.push('/friend-requests').then((_) => _loadFriends());
-              },
-              icon: const Icon(Icons.mail_outline),
-              label: const Text('Заявки в друзья'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.secondary,
-                foregroundColor: AppColors.textLight,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+        ),
+        child: Stack(
+          children: [
+            // Заголовок "Друзья"
+            Positioned(
+              left: 82,
+              top: 52,
+              child: Text(
+                'Друзья',
+                style: AppTextStyles.headlineMedium.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: 24,
+                  height: 1.67,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-          ),
-          
-          // Список друзей
-          Expanded(
-            child: _buildBody(),
-          ),
-          
-          // Кнопка поиска друзей (поверх скролла)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                context.push('/search-friends').then((_) => _loadFriends());
-              },
-              icon: const Icon(Icons.search),
-              label: const Text('Найти друзей'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            
+            // Кнопка "Заявки" справа от заголовка
+            Positioned(
+              left: 267,
+              top: 57,
+              child: GestureDetector(
+                onTap: () {
+                  context.push('/friend-requests').then((_) => _loadFriends());
+                },
+                child: Container(
+                  width: 112,
+                  height: 32,
+                  padding: const EdgeInsets.all(10),
+                  decoration: ShapeDecoration(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Заявки',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                          fontFamily: 'Instrument Sans',
+                          fontWeight: FontWeight.w700,
+                          height: 1.38,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Container(
+                        width: 10,
+                        height: 10,
+                        //decoration: ShapeDecoration(
+                        //  color: AppColors.primary,
+                        //  shape: ShapeBorder.lerp(a, b, t),
+                        //),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+            
+            // Кнопка меню (три полоски) - временно пустая заглушка
+            Positioned(
+              left: 10,
+              top: 52,
+              child: Container(
+                width: 37,
+                height: 37,
+                child: IconButton(
+                  icon: const Icon(Icons.menu, color: AppColors.textPrimary),
+                  onPressed: () {
+                    // TODO: Открыть pop-up меню
+                  },
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+            
+            // Список друзей
+            Positioned(
+              left: 41,
+              top: 107,
+              child: Container(
+                width: 355,
+                height: 680,
+                child: _buildBody(),
+              ),
+            ),
+            
+            // Кнопка добавления друга (круглая оранжевая)
+            Positioned(
+              left: 176,
+              top: 775,
+              child: GestureDetector(
+                onTap: () {
+                  context.push('/search-friends').then((_) => _loadFriends());
+                },
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: ShapeDecoration(
+                    color: AppColors.secondary,
+                    shape: const OvalBorder(),
+                  ),
+                  child: const Icon(
+                    Icons.add,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -211,33 +269,90 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: _friends.length,
       itemBuilder: (context, index) {
         final friend = _friends[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: AppColors.primary,
-              child: Text(
-                friend.username[0].toUpperCase(),
-                style: const TextStyle(color: Colors.white),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 15),
+          child: Stack(
+            children: [
+              // Аватар друга
+              Container(
+                width: 65,
+                height: 65,
+                decoration: ShapeDecoration(
+                  color: AppColors.tertiary,
+                  shape: const OvalBorder(),
+                ),
+                child: Center(
+                  child: Text(
+                    friend.username[0].toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            title: Text(
-              friend.username,
-              style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w500, color: Colors.white),
-            ),
-            subtitle: Text(
-              friend.email,
-              style: AppTextStyles.bodySmall,
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.person_remove, color: Colors.red),
-              onPressed: () => _removeFriend(friend),
-              tooltip: 'Удалить из друзей',
-            ),
+              // Информация о друге
+              Positioned(
+                left: 80,
+                top: 5,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 200,
+                      child: Text(
+                        friend.username,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 20,
+                          fontFamily: 'Instrument Sans',
+                          fontWeight: FontWeight.w500,
+                          height: 1.10,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 200,
+                      child: Text(
+                        friend.email,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 16,
+                          fontFamily: 'Instrument Sans',
+                          fontWeight: FontWeight.w500,
+                          height: 1.38,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Кнопка удаления
+              Positioned(
+                right: 0,
+                top: 15,
+                child: GestureDetector(
+                  onTap: () => _removeFriend(friend),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    child: const Icon(
+                      Icons.person_remove,
+                      color: Colors.red,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
