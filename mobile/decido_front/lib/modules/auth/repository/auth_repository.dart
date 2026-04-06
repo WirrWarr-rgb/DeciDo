@@ -186,6 +186,9 @@ Future<UserModel> _realRegister({
   
   Future<bool> checkAuth() async {
     final token = await _storage.read(key: 'access_token');
+
+    print('CheckAuth: token = $token');
+    
     if (token == null) return false;
     
     if (AppConfig.useMocks) {
