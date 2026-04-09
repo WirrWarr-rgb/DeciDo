@@ -1,18 +1,18 @@
-import 'package:decido_front/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
 import '../../models/list_item_model.dart';
 
 class ItemEditBottomSheet extends StatefulWidget {
   final ListItemModel item;
   final Function(ListItemModel) onSave;
-  final VoidCallback onDelete;
-  
+  final VoidCallback onClose;
+
   const ItemEditBottomSheet({
     super.key,
     required this.item,
     required this.onSave,
-    required this.onDelete,
+    required this.onClose,
   });
 
   @override
@@ -22,21 +22,21 @@ class ItemEditBottomSheet extends StatefulWidget {
 class _ItemEditBottomSheetState extends State<ItemEditBottomSheet> {
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
-  
+
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.item.name);
     _descriptionController = TextEditingController(text: widget.item.description);
   }
-  
+
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
-  
+
   void _save() {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -44,128 +44,184 @@ class _ItemEditBottomSheetState extends State<ItemEditBottomSheet> {
       );
       return;
     }
-    
+
     final updatedItem = widget.item;
     updatedItem.name = _nameController.text.trim();
     updatedItem.description = _descriptionController.text.trim().isEmpty
         ? null
         : _descriptionController.text.trim();
-    
+
     widget.onSave(updatedItem);
-    Navigator.pop(context); // Только один pop при сохранении
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.pop(context),
+      onTap: () {
+        widget.onClose();
+        Navigator.pop(context);
+      },
       child: Container(
-        height: MediaQuery.of(context).size.height * 0.6,
+        height: 322,
         decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          color: Colors.transparent,
         ),
         child: GestureDetector(
-          onTap: () {}, // Предотвращаем закрытие при нажатии на содержимое
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Заголовок
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Редактирование элемента',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                
-                // Поле названия
-                TextField(
-                  controller: _nameController,
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Название',
-                    labelStyle: TextStyle(color: AppColors.textSecondary),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // Поле описания
-                TextField(
-                  controller: _descriptionController,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Описание (необязательно)',
-                    labelStyle: TextStyle(color: AppColors.textSecondary),
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 16),
-                
-                // TODO: Добавить выбор картинки
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.image, color: AppColors.primary),
-                      const SizedBox(width: 12),
-                      const Text('Добавить картинку (скоро)'),
-                    ],
-                  ),
-                ),
-                
-                const Spacer(),
-                
-                // Кнопки
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          widget.onDelete();
-                          // Убираем Navigator.pop(context) отсюда, так как onDelete уже закрывает bottom sheet
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                        ),
-                        child: const Text('Удалить'),
+          onTap: () {},
+          child: Stack(
+            children: [
+              // Белая карточка
+              Positioned(
+                left: 0,
+                top: 0,
+                child: Container(
+                  width: 412,
+                  height: 322,
+                  decoration: const ShapeDecoration(
+                    color: AppColors.background,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(25),
+                        topRight: Radius.circular(25),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _save,
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor: AppColors.primary,
-                        ),
-                        child: const Text('Сохранить'),
+                  ),
+                ),
+              ),
+              
+              // Место для картинки
+              Positioned(
+                left: 20,
+                top: 24,
+                child: Container(
+                  width: 150,
+                  height: 211,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: ShapeDecoration(
+                    color: AppColors.tertiary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.image,
+                      color: AppColors.textLight.withOpacity(0.5),
+                      size: 40,
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Поле названия
+              Positioned(
+                left: 178,
+                top: 24,
+                child: Container(
+                  width: 217,
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 0),
+                  decoration: ShapeDecoration(
+                    color: AppColors.inputBackground,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _nameController,
+                    style: const TextStyle(
+                      color: AppColors.inputText,
+                      fontSize: 16,
+                      fontFamily: 'Instrument Sans',
+                      fontWeight: FontWeight.w400,
+                      height: 1.25,
+                      letterSpacing: 0.25,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Название',
+                      hintStyle: TextStyle(
+                        color: AppColors.inputText,
+                        fontSize: 16,
+                        fontFamily: 'Instrument Sans',
+                        fontWeight: FontWeight.w400,
+                        height: 1.25,
+                        letterSpacing: 0.25,
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Поле описания
+              Positioned(
+                left: 178,
+                top: 77,
+                child: Container(
+                  width: 217,
+                  height: 158,
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
+                  decoration: ShapeDecoration(
+                    color: AppColors.inputBackground,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _descriptionController,
+                    style: const TextStyle(
+                      color: AppColors.inputText,
+                      fontSize: 16,
+                      fontFamily: 'Instrument Sans',
+                      fontWeight: FontWeight.w400,
+                      height: 1.25,
+                      letterSpacing: 0.25,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Описание',
+                      hintStyle: TextStyle(
+                        color: AppColors.inputText,
+                        fontSize: 16,
+                        fontFamily: 'Instrument Sans',
+                        fontWeight: FontWeight.w400,
+                        height: 1.25,
+                        letterSpacing: 0.25,
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    maxLines: 7,
+                  ),
+                ),
+              ),
+              
+              // Кнопка сохранения
+              Positioned(
+                left: 284,
+                top: 244,
+                child: GestureDetector(
+                  onTap: _save,
+                  child: Container(
+                    width: 110,
+                    height: 30,
+                    padding: const EdgeInsets.symmetric( horizontal: 10),
+                    decoration: ShapeDecoration(
+                      color: AppColors.secondary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                  ],
+                    child: const Center(
+                      child: Text(
+                        'Сохранить',
+                        style: AppTextStyles.bodyLarge
+                      ),
+                    ),
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

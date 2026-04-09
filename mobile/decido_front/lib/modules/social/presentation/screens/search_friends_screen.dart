@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../repository/friends_repository.dart';
@@ -26,7 +27,7 @@ class _SearchFriendsScreenState extends ConsumerState<SearchFriendsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();  // Вместо _loadSentRequests()
+    _loadData();
   }
 
   @override
@@ -39,7 +40,7 @@ class _SearchFriendsScreenState extends ConsumerState<SearchFriendsScreen> {
     await Future.wait([
       _loadSentRequests(),
       _loadFriendIds(),
-      _loadIncomingSenderIds(),  
+      _loadIncomingSenderIds(),
     ]);
   }
 
@@ -98,7 +99,7 @@ class _SearchFriendsScreenState extends ConsumerState<SearchFriendsScreen> {
           return user.copyWith(isFriend: true);
         }
         if (_incomingSenderIds.contains(user.id)) {
-          return user.copyWith(requestSent: true, isIncomingRequest: true);  // Добавляем флаг
+          return user.copyWith(requestSent: true, isIncomingRequest: true);
         }
         return user;
       }).toList();
@@ -153,66 +154,137 @@ class _SearchFriendsScreenState extends ConsumerState<SearchFriendsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Поиск друзей'),
-      ),
-      body: Column(
-        children: [
-          // Поле поиска
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+      body: Container(
+        width: 412,
+        height: 892,
+        clipBehavior: Clip.antiAlias,
+        decoration: ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Кнопка меню (три полоски) - заглушка
+            Positioned(
+              left: 10,
+              top: 52,
+              child: Container(
+                width: 37,
+                height: 37,
+                child: IconButton(
+                  icon: const Icon(Icons.menu, color: AppColors.textPrimary),
+                  onPressed: () {
+                    // TODO: Открыть pop-up меню
+                  },
+                  padding: EdgeInsets.zero,
                 ),
-              ],
+              ),
             ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Введите имя пользователя...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
+            
+            // Заголовок "Поиск"
+            Positioned(
+              left: 82,
+              top: 52,
+              child: Text(
+                'Поиск',
+                style: AppTextStyles.headlineMedium.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: 24,
+                  height: 1.67,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            
+            // Поле поиска
+            Positioned(
+              left: 41,
+              top: 98,
+              child: Container(
+                width: 330,
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 0), // Убрал вертикальный padding
+                decoration: ShapeDecoration(
+                  color: AppColors.inputBackground,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center, // Выравнивание по центру
+                  children: [
+                    if (_searchController.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, color: AppColors.darkBackground, size: 20),
                         onPressed: () {
                           _searchController.clear();
                           _search('');
                         },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        textAlignVertical: TextAlignVertical.center, // Вертикальное выравнивание текста
+                        style: const TextStyle(
+                          color: AppColors.inputText,
+                          fontSize: 20,
+                          fontFamily: 'Instrument Sans',
+                          fontWeight: FontWeight.w400,
+                          height: 1.0, // Фиксированная высота строки
+                        ),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: '@username',
+                          hintStyle: TextStyle(
+                            color: AppColors.inputText,
+                            fontSize: 20,
+                            fontFamily: 'Instrument Sans',
+                            fontWeight: FontWeight.w400,
+                            height: 1.0,
+                          ),
+                          contentPadding: EdgeInsets.symmetric(vertical: 0), // Убираем вертикальные отступы
+                          isDense: true, // Уменьшает общую высоту
+                        ),
+                        onChanged: _search,
+                      ),
+                    ),
+                    // Иконка поиска (место для SVG)
+                    Container(
+                      width: 24,
+                      height: 24,
+                      child: const Icon(Icons.search, color: AppColors.darkBackground, size: 20),
+                    ),
+                  ],
                 ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
               ),
-              onChanged: (value) {
-                _search(value);
-              },
             ),
-          ),
-          
-          // Результаты поиска
-          Expanded(
-            child: _buildResults(),
-          ),
-        ],
+
+            // Результаты поиска
+            Positioned(
+              left: 41,
+              top: 157,
+              child: Container(
+                width: 355,
+                height: 680,
+                child: _buildResults(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildResults() {
-    // Показываем индикатор загрузки
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Показываем ошибку
     if (_errorMessage != null) {
       return Center(
         child: Column(
@@ -231,7 +303,6 @@ class _SearchFriendsScreenState extends ConsumerState<SearchFriendsScreen> {
       );
     }
 
-    // Показываем сообщение "ничего не найдено"
     if (_isSearching && _results.isEmpty) {
       return Center(
         child: Column(
@@ -248,7 +319,6 @@ class _SearchFriendsScreenState extends ConsumerState<SearchFriendsScreen> {
       );
     }
 
-    // Показываем приглашение к поиску
     if (!_isSearching) {
       return Center(
         child: Column(
@@ -265,86 +335,136 @@ class _SearchFriendsScreenState extends ConsumerState<SearchFriendsScreen> {
       );
     }
 
-    // === ОСНОВНАЯ ЧАСТЬ: отображаем результаты поиска ===
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
       itemCount: _results.length,
       itemBuilder: (context, index) {
         final user = _results[index];
         
-        // Проверяем статусы:
-        // 1. isAlreadyFriend - пользователь уже в друзьях
-        // 2. isRequestSent - заявка уже отправлена (проверяем оба источника)
         final isAlreadyFriend = user.isFriend;
         final isRequestSent = user.requestSent || _sentRequests.contains(user.id);
         
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: AppColors.primary,
-              child: Text(
-                user.username[0].toUpperCase(),
-                style: const TextStyle(color: Colors.white),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 15),
+          child: Stack(
+            children: [
+              // Аватар пользователя
+              Container(
+                width: 65,
+                height: 65,
+                decoration: ShapeDecoration(
+                  color: AppColors.tertiary,
+                  shape: const OvalBorder(),
+                ),
+                child: Center(
+                  child: Text(
+                    user.username.isNotEmpty ? user.username[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            title: Text(
-              user.username,
-              style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w500, color: Colors.white),
-            ),
-            subtitle: Text(
-              user.email,
-              style: AppTextStyles.bodySmall,
-            ),
-            
-            // === ЗДЕСЬ КЛЮЧЕВАЯ ЧАСТЬ: меняем вид кнопки в зависимости от статуса ===
-            trailing: isAlreadyFriend
-                ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(16),
+              
+              // Информация о пользователе
+              Positioned(
+                left: 80,
+                top: 5,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 200,
+                      child: Text(
+                        user.username,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 20,
+                          fontFamily: 'Instrument Sans',
+                          fontWeight: FontWeight.w500,
+                          height: 1.10,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    child: Text(
-                      'Друг',
-                      style: AppTextStyles.bodySmall.copyWith(color: Colors.green.shade700),
+                    SizedBox(
+                      width: 200,
+                      child: Text(
+                        user.email,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 16,
+                          fontFamily: 'Instrument Sans',
+                          fontWeight: FontWeight.w500,
+                          height: 1.38,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  )
-                : user.isIncomingRequest  // Проверяем, что пользователь отправил запрос нам
+                  ],
+                ),
+              ),
+              
+              // Кнопка действия
+              Positioned(
+                right: 0,
+                top: 15,
+                child: isAlreadyFriend
                     ? Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.orange.shade100,
+                          color: Colors.green.shade100,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
-                          'Уже отправил запрос вам',
-                          style: AppTextStyles.bodySmall.copyWith(color: Colors.orange.shade700),
+                          'Друг',
+                          style: AppTextStyles.bodySmall.copyWith(color: Colors.green.shade700),
                         ),
                       )
-                    : isRequestSent
+                    : user.isIncomingRequest
                         ? Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade300,
+                              color: Colors.orange.shade100,
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(
-                              'Заявка отправлена',
-                              style: AppTextStyles.bodySmall.copyWith(color: Colors.grey.shade700),
+                              'Входящая заявка',
+                              style: AppTextStyles.bodySmall.copyWith(color: Colors.orange.shade700),
                             ),
                           )
-                        : ElevatedButton(
-                            onPressed: () => _sendRequest(user),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.secondary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                        : isRequestSent
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade300,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  'Заявка отправлена',
+                                  style: AppTextStyles.bodySmall.copyWith(color: Colors.grey.shade700),
+                                ),
+                              )
+                              : Positioned(
+                                  right: 46,
+                                  top: 15,
+                                  child: GestureDetector(
+                                      onTap: () => _sendRequest(user),
+                                      child: Container(
+                                          child: SvgPicture.asset(
+                                              'assets/icons/add_plus_green_icon.svg',
+                                              width: 32,
+                                              height: 32,
+                                              fit: BoxFit.contain,
+                                          ),
+                                      ),
+                                  ),
                               ),
-                            ),
-                            child: const Text('Добавить'),
-                          ),
+              ),
+            ],
           ),
         );
       },

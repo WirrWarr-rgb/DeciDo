@@ -1,10 +1,10 @@
+import 'package:decido_front/modules/shared/widgets/custom_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../config/router/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../shared/widgets/custom_button.dart';
 import '../../repository/list_repository.dart';
 import '../../models/list_model.dart';
 import 'edit_list_screen.dart';
@@ -18,52 +18,45 @@ class MyListsScreen extends ConsumerStatefulWidget {
 
 class _MyListsScreenState extends ConsumerState<MyListsScreen> {
   final ListRepository _repository = ListRepository();
-  late List<ListModel> _lists;
-  
+  List<ListModel> _lists = [];
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
     _loadLists();
   }
-  
+
   void _loadLists() {
     setState(() {
       _lists = _repository.getAllLists();
+      _isLoading = false;
     });
   }
-  
+
   Future<void> _createNewList() async {
-  try {
-    if (!_repository.canCreateList()) {
-      _showError('Достигнут лимит списков (${ListRepository.maxLists})');
-      return;
+    try {
+      if (!_repository.canCreateList()) {
+        _showError('Достигнут лимит списков (${ListRepository.maxLists})');
+        return;
+      }
+
+      final uniqueName = _repository.generateUniqueListName('Новый список');
+      final newList = _repository.createList(uniqueName);
+      _repository.createItem(newList.id, 'Первый элемент');
+
+      if (mounted) {
+        context.push('/edit-list/${newList.id}').then((_) => _loadLists());
+      }
+    } catch (e) {
+      _showError(e.toString());
     }
-    
-    // Генерируем уникальное имя
-    final uniqueName = _repository.generateUniqueListName('Новый список');
-    
-    // Создаем список с уникальным именем
-    final newList = _repository.createList(uniqueName);
-    
-    // Создаем элемент по умолчанию
-    _repository.createItem(newList.id, 'Первый элемент');
-    
-    if (mounted) {
-      context.pushNamed('editList', 
-        pathParameters: {'id': newList.id},
-        extra: {'isNew': true},
-      ).then((_) => _loadLists());
-    }
-  } catch (e) {
-    _showError(e.toString());
   }
-  }
-  
+
   void _editList(ListModel list) {
-    context.pushNamed('editList', pathParameters: {'id': list.id},
-          extra: {'isNew': false}).then((_) => _loadLists());
+    context.push('/edit-list/${list.id}').then((_) => _loadLists());
   }
-  
+
   void _deleteList(ListModel list) {
     showDialog(
       context: context,
@@ -87,87 +80,225 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
       ),
     );
   }
-  
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
-  
+
+  Color _getListColor(int index) {
+    final colors = [
+      AppColors.secondary,  // Оранжевый
+      AppColors.primary,     // Зеленый
+      AppColors.tertiary,    // Темно-синий
+      AppColors.inputBackground, // Серо-голубой
+    ];
+    return colors[index % colors.length];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Мои списки'),
-      ),
-      body: _lists.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.list_alt, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  Text(
-                    'У вас пока нет списков',
-                    style: AppTextStyles.bodyMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  CustomButton(
-                    text: 'Создать первый список',
-                    onPressed: _createNewList,
-                    width: 200,
-                    fontSize: 16,
-                  ),
-                ],
+      body: Container(
+        width: 412,
+        height: 892,
+        clipBehavior: Clip.antiAlias,
+        decoration: ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Кнопка меню (заглушка)
+            Positioned(
+              left: 10,
+              top: 52,
+              child: IconButton(
+                icon: const Icon(Icons.menu, color: AppColors.textPrimary),
+                onPressed: () {},
+                padding: EdgeInsets.zero,
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _lists.length,
-              itemBuilder: (context, index) {
-                final list = _lists[index];
-                final itemsCount = _repository.getItemsByListId(list.id).length;
-                
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: AppColors.secondary,
-                      child: Text('${index + 1}'),
-                    ),
-                    title: Text(
-                      list.name,
-                      style: AppTextStyles.headlineSmall.copyWith(
-                        color: AppColors.background, // Явно указываем темный цвет
-                      ),
-                    ),
-                    subtitle: Text(
-                      '$itemsCount элементов',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: AppColors.primary),
-                          onPressed: () => _editList(list),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteList(list),
-                        ),
-                      ],
-                    ),
-                    onTap: () => _editList(list),
-                  ),
-                );
-              },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createNewList,
-        child: const Icon(Icons.add),
+
+            // Заголовок
+            Positioned(
+              left: 82,
+              top: 52,
+              child: Text(
+                'Мои списки',
+                style: AppTextStyles.headlineMedium.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: 24,
+                  height: 1.67,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+
+            // Список
+            Positioned(
+              left: 41,
+              top: 110,
+              child: Container(
+                width: 355,
+                height: 650,
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _lists.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.list_alt, size: 64, color: Colors.grey),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'У вас пока нет списков',
+                                  style: AppTextStyles.bodyMedium,
+                                ),
+                                const SizedBox(height: 16),
+                                CustomButton(
+                                  text: 'Создать первый список',
+                                  onPressed: _createNewList,
+                                  width: 200,
+                                  fontSize: 16,
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _lists.length,
+                            itemBuilder: (context, index) {
+                              final list = _lists[index];
+                              final itemsCount = _repository.getItemsByListId(list.id).length;
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 15),
+                                child: GestureDetector(
+                                  onTap: () => _editList(list),
+                                  child: Row(
+                                    children: [
+                                      // Цветная иконка списка
+                                      Container(
+                                        width: 66,
+                                        height: 66,
+                                        decoration: ShapeDecoration(
+                                          color: _getListColor(index),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '${index + 1}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 15),
+                                      // Информация о списке
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              list.name,
+                                              style: TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontSize: 20,
+                                                fontFamily: 'Instrument Sans',
+                                                fontWeight: FontWeight.w500,
+                                                height: 1.10,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              '$itemsCount элементов',
+                                              style: TextStyle(
+                                                color: AppColors.textSecondary,
+                                                fontSize: 14,
+                                                fontFamily: 'Instrument Sans',
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 20),
+                                      // Кнопки редактирования и удаления// Кнопки редактирования и удаления
+                                      Row(
+                                        children: [
+                                          IconButton(
+                                            icon: SvgPicture.asset(
+                                              'assets/icons/edit_pen_icon.svg',
+                                              width: 30,
+                                              height: 30,
+                                            ),
+                                            onPressed: () => _editList(list),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                          const SizedBox(width: 2.5),
+                                          IconButton(
+                                            icon: SvgPicture.asset(
+                                              'assets/icons/delete_bin_icon.svg',
+                                              width: 35,
+                                              height: 35,
+                                              colorFilter: const ColorFilter.mode(
+                                                AppColors.secondary,
+                                                BlendMode.srcIn,
+                                              ),
+                                            ),
+                                            onPressed: () => _deleteList(list),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ),
+
+            // Кнопка добавления списка
+            Positioned(
+              left: 176,
+              top: 775,
+              child: GestureDetector(
+                onTap: _createNewList,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: ShapeDecoration(
+                    color: AppColors.secondary,
+                    shape: const OvalBorder(),
+                  ),
+                  child: Center(
+                    child: SizedBox(
+                      width: 46,
+                      height: 46,
+                      child: SvgPicture.asset(
+                        'assets/icons/add_plus_white_icon.svg',
+                        width: 46,
+                        height: 46,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

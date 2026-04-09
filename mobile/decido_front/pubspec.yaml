@@ -37,8 +37,7 @@ flutter:
   
   assets:
     - .env
-    - assets/icons/profile_header_bg.svg
-    - assets/icons/profile_name_change.svg
+    - assets/icons/
 
   fonts:
     - family: Instrument Sans
