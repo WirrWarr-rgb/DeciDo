@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../repository/friends_repository.dart';
@@ -19,12 +20,25 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   final FriendsRepository _repository = FriendsRepository();
   List<FriendModel> _friends = [];
   bool _isLoading = true;
+  bool _hasPendingRequests = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _loadFriends();
+    _checkPendingRequests();
+  }
+
+  Future<void> _checkPendingRequests() async {
+    try {
+      final requests = await _repository.getIncomingRequests();
+      setState(() {
+        _hasPendingRequests = requests.isNotEmpty;
+      });
+    } catch (e) {
+      print('Error checking pending requests: $e');
+    }
   }
 
   Future<void> _loadFriends() async {
@@ -40,6 +54,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
         _friends = friends;
         _isLoading = false;
       });
+      await _checkPendingRequests();
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -123,44 +138,43 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               top: 57,
               child: GestureDetector(
                 onTap: () {
-                  context.push('/friend-requests').then((_) => _loadFriends());
+                  context.push('/friend-requests').then((_) {
+                    _loadFriends();
+                    _checkPendingRequests();
+                  });
                 },
-                child: Container(
-                  width: 112,
-                  height: 32,
-                  padding: const EdgeInsets.all(10),
-                  decoration: ShapeDecoration(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Заявки',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 16,
-                          fontFamily: 'Instrument Sans',
-                          fontWeight: FontWeight.w700,
-                          height: 1.38,
-                        ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Текст "Заявки"
+                    Text(
+                      'Заявки',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontFamily: 'Instrument Sans',
+                        fontWeight: FontWeight.w700,
+                        height: 1.38,
                       ),
-                      const SizedBox(width: 5),
-                      Container(
+                    ),
+                    const SizedBox(width: 5),
+                    // Иконка уведомления (показывается только если есть запросы)
+                    if (_hasPendingRequests) ...[
+                      SvgPicture.asset(
+                        'assets/icons/notif_dot_icon.svg',
                         width: 10,
                         height: 10,
-                        //decoration: ShapeDecoration(
-                        //  color: AppColors.primary,
-                        //  shape: ShapeBorder.lerp(a, b, t),
-                        //),
                       ),
+                      const SizedBox(width: 5),
                     ],
-                  ),
+                    // Иконка стрелки
+                    SvgPicture.asset(
+                      'assets/icons/navigation_arrow_right.svg',
+                      width: 20,
+                      height: 20,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -199,7 +213,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               top: 775,
               child: GestureDetector(
                 onTap: () {
-                  context.push('/search-friends').then((_) => _loadFriends());
+                  context.push('/search-friends').then((_) {
+                    _loadFriends();
+                    _checkPendingRequests();
+                  });
                 },
                 child: Container(
                   width: 60,
@@ -208,10 +225,17 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                     color: AppColors.secondary,
                     shape: const OvalBorder(),
                   ),
-                  child: const Icon(
-                    Icons.add,
-                    color: Colors.white,
-                    size: 30,
+                  child: Center(
+                    child: SizedBox(
+                      width: 46,
+                      height: 46,
+                      child: SvgPicture.asset(
+                        'assets/icons/add_plus_white_icon.svg',
+                        width: 46,
+                        height: 46,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -259,7 +283,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
-                context.push('/search-friends').then((_) => _loadFriends());
+                context.push('/search-friends').then((_) {
+                  _loadFriends();
+                  _checkPendingRequests();
+                });
               },
               child: const Text('Найти друзей'),
             ),

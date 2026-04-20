@@ -45,6 +45,38 @@ class FriendsRepository {
       throw Exception('Ошибка загрузки заявок: $e');
     }
   }
+  // Получить исходящие заявки с данными получателей
+  Future<List<Map<String, dynamic>>> getOutgoingRequestsWithUsers() async {
+    try {
+      final requests = await getOutgoingRequests();
+      final List<Map<String, dynamic>> result = [];
+      
+      for (final request in requests) {
+        try {
+          final user = await getUserById(request.friendId);
+          result.add({
+            'request': request,
+            'user': user,
+          });
+        } catch (e) {
+          result.add({
+            'request': request,
+            'user': UserSearchModel(
+              id: request.friendId,
+              username: 'Пользователь #${request.friendId}',
+              email: '',
+              isActive: true,
+            ),
+          });
+        }
+      }
+      
+      return result;
+    } catch (e) {
+      print('Error loading outgoing requests: $e');
+      return [];
+    }
+  }
   
   // Принять заявку
   Future<void> acceptRequest(int requestId) async {
