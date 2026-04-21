@@ -3,3 +3,4 @@ from app.api.v1.endpoints.lists import router as lists_router
 from app.api.v1.endpoints.users import router as users_router
 from app.api.v1.endpoints.friends import router as friends_router
 from app.api.v1.endpoints.groups import router as groups_router
+from app.api.v1.endpoints.sessions import router as sessions_router
