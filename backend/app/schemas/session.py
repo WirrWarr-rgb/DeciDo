@@ -7,11 +7,12 @@ from enum import Enum
 
 # ============= Enums =============
 class SessionStatusEnum(str, Enum):
-    LOBBY_EDITING = "lobby_editing"
-    LOBBY_COUNTDOWN = "lobby_countdown"
+    WAITING = "waiting"
+    EDITING = "editing"
+    READY = "ready"
     VOTING = "voting"
     RESULTS = "results"
-    CANCELLED = "cancelled"
+    CLOSED = "closed"
 
 
 class SessionModeEnum(str, Enum):
@@ -19,43 +20,65 @@ class SessionModeEnum(str, Enum):
     RANKING = "ranking"
 
 
+class ParticipantStatusEnum(str, Enum):
+    INVITED = "invited"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    LEFT = "left"
+
+
 # ============= Request Schemas =============
-class SessionCreate(BaseModel):
-    """Создание новой сессии"""
-    group_id: int
-    list_id: int  # ID оригинального списка пользователя
-    mode: SessionModeEnum
-    countdown_duration: int = Field(default=60, ge=10, le=300)  # 10 сек - 5 мин
-    voting_duration: int = Field(default=120, ge=30, le=600)     # 30 сек - 10 мин
+class CreateLobbyRequest(BaseModel):
+    """Запрос на создание лобби"""
+    friend_ids: List[int] = Field(..., min_length=1, max_length=20)
+    list_id: int
+    mode: SessionModeEnum = SessionModeEnum.RANKING
+    voting_duration: int = Field(default=120, ge=30, le=600)
 
 
-class SessionListItemCreate(BaseModel):
-    """Добавление пункта во временный список"""
-    name: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = None
-    image_url: Optional[str] = None
+class ChangeListRequest(BaseModel):
+    """Смена списка в лобби"""
+    list_id: int
 
 
-class SessionListItemUpdate(BaseModel):
-    """Обновление пункта временного списка"""
-    name: Optional[str] = Field(None, min_length=1, max_length=200)
-    description: Optional[str] = None
-    image_url: Optional[str] = None
+class InviteToLobbyRequest(BaseModel):
+    """Пригласить ещё друзей"""
+    friend_ids: List[int]
 
 
-class SessionListOrderUpdate(BaseModel):
-    """Обновление порядка пунктов"""
-    items: List[Dict[str, int]]  # [{"id": 1, "order_index": 0}, ...]
+class AcceptInviteRequest(BaseModel):
+    """Принять приглашение"""
+    pass
 
 
-class ReadyRequest(BaseModel):
-    """Отметка о готовности"""
+class DeclineInviteRequest(BaseModel):
+    """Отклонить приглашение"""
+    pass
+
+
+class MarkReadyRequest(BaseModel):
+    """Отметка готовности"""
+    pass
+
+
+class StartLobbyRequest(BaseModel):
+    """Принудительный старт владельцем"""
+    pass
+
+
+class LockListRequest(BaseModel):
+    """Закрыть список для редактирования"""
+    pass
+
+
+class UnlockListRequest(BaseModel):
+    """Открыть список для редактирования"""
     pass
 
 
 class VoteRequest(BaseModel):
     """Отправка голоса"""
-    ranked_item_ids: Optional[List[int]] = None  # ID пунктов SessionListItem
+    ranked_item_ids: Optional[List[int]] = None
     spin: bool = False
 
     @field_validator('ranked_item_ids')
@@ -65,14 +88,28 @@ class VoteRequest(BaseModel):
         return v
 
 
-class ResetSessionRequest(BaseModel):
-    """Сброс сессии для нового раунда"""
-    pass
+class SessionListItemCreate(BaseModel):
+    """Добавление пункта в список"""
+    name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+class SessionListItemUpdate(BaseModel):
+    """Обновление пункта"""
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+class ItemsOrderUpdate(BaseModel):
+    """Обновление порядка пунктов"""
+    items: List[Dict[str, int]]
 
 
 # ============= Response Schemas =============
 class SessionListItemResponse(BaseModel):
-    """Пункт временного списка"""
+    """Пункт списка"""
     id: int
     name: str
     description: Optional[str] = None
@@ -86,113 +123,125 @@ class SessionListItemResponse(BaseModel):
 
 
 class SessionListResponse(BaseModel):
-    """Временный список сессии"""
+    """Список в лобби"""
     id: int
-    session_id: int
     name: str
+    is_active: bool
     items: List[SessionListItemResponse]
     created_at: datetime
-    updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
 
 
-class SessionParticipantResponse(BaseModel):
-    """Информация об участнике сессии"""
+class ParticipantResponse(BaseModel):
+    """Участник лобби"""
     user_id: int
     username: str
+    status: ParticipantStatusEnum
     is_ready: bool
     has_voted: bool
-    has_spun: bool
-    is_creator: bool
-    joined_at: datetime
-    ready_at: Optional[datetime] = None
-
+    is_owner: bool
+    invited_at: datetime
+    joined_at: Optional[datetime] = None
+    
     class Config:
         from_attributes = True
 
 
-class SessionResponse(BaseModel):
-    """Базовая информация о сессии"""
+class LobbyResponse(BaseModel):
+    """Информация о лобби"""
     id: int
-    group_id: int
-    original_list_id: Optional[int] = None
-    created_by: Optional[int] = None
-    mode: SessionModeEnum
+    owner_id: int
+    owner_name: str
     status: SessionStatusEnum
-    countdown_duration: int
+    mode: SessionModeEnum
+    list_locked: bool
+    current_list: Optional[SessionListResponse] = None
+    participants: List[ParticipantResponse]
     voting_duration: int
-    started_at: datetime
-    countdown_ends_at: Optional[datetime] = None
-    voting_ends_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
     created_at: datetime
-
+    voting_ends_at: Optional[datetime] = None
+    results: Optional[Dict[str, Any]] = None
+    
+    # Права текущего пользователя
+    is_owner: bool = False
+    can_edit_list: bool = False
+    can_start: bool = False
+    can_invite: bool = False
+    can_lock_list: bool = False
+    
     class Config:
         from_attributes = True
 
 
-class SessionDetailResponse(SessionResponse):
-    """Детальная информация о сессии"""
-    participants: List[SessionParticipantResponse]
-    session_list: Optional[SessionListResponse] = None
-    results: Optional[Dict[str, Any]] = None
-    can_edit: bool  # Может ли текущий пользователь редактировать список
-    is_creator: bool  # Является ли текущий пользователь создателем
+class MyLobbiesResponse(BaseModel):
+    """Список лобби пользователя"""
+    active: List[LobbyResponse]
+    invitations: List[LobbyResponse]
+    history: List[LobbyResponse]
 
 
 class VoteResultResponse(BaseModel):
-    """Результат обработки голоса"""
+    """Результат голосования"""
     success: bool
     message: str
     all_voted: bool = False
 
 
-class SessionResultItemResponse(BaseModel):
-    """Результат по одному пункту"""
-    item_id: int
-    item_name: str
-    total_score: int
-    place: int
-
-
-class SessionResultsResponse(BaseModel):
-    """Полные результаты сессии"""
+class ResultsResponse(BaseModel):
+    """Результаты голосования"""
     session_id: int
-    status: SessionStatusEnum
-    winner: Optional[SessionResultItemResponse] = None
-    results: List[SessionResultItemResponse]
+    winner: Optional[Dict[str, Any]] = None
+    results: List[Dict[str, Any]]
+    participants_count: int
+    voted_count: int
 
 
 # ============= WebSocket Schemas =============
 class WSMessageType(str, Enum):
-    """Типы сообщений WebSocket"""
-    # От сервера к клиенту
-    USER_READY = "user_ready"
+    """Типы WebSocket сообщений"""
+    # От сервера
+    LOBBY_INVITATION = "lobby_invitation"
+    PARTICIPANT_JOINED = "participant_joined"
+    PARTICIPANT_LEFT = "participant_left"
+    PARTICIPANT_READY = "participant_ready"
+    LIST_CHANGED = "list_changed"
+    LIST_LOCKED = "list_locked"
+    LIST_UNLOCKED = "list_unlocked"
+    LIST_ITEM_ADDED = "list_item_added"
+    LIST_ITEM_UPDATED = "list_item_updated"
+    LIST_ITEM_DELETED = "list_item_deleted"
+    LIST_ORDER_CHANGED = "list_order_changed"
+    LOBBY_STARTED = "lobby_started"
+    VOTING_STARTED = "voting_started"
     USER_VOTED = "user_voted"
-    SESSION_STATE_CHANGED = "session_state_changed"
-    LIST_UPDATED = "list_updated"           # Список изменён
-    LIST_ITEM_ADDED = "list_item_added"     # Добавлен пункт
-    LIST_ITEM_UPDATED = "list_item_updated" # Обновлён пункт
-    LIST_ITEM_DELETED = "list_item_deleted" # Удалён пункт
-    TIMER_SYNC = "timer_sync"
-    COUNTDOWN_STARTED = "countdown_started"  # Таймер запущен
     RESULTS_READY = "results_ready"
+    LOBBY_CLOSED = "lobby_closed"
+    STATE_CHANGED = "state_changed"
     ERROR = "error"
     PONG = "pong"
-
-    # От клиента к серверу
+    
+    # От клиента
+    ACCEPT_INVITE = "accept_invite"
+    DECLINE_INVITE = "decline_invite"
     READY = "ready"
+    START_LOBBY = "start_lobby"
+    CHANGE_LIST = "change_list"
+    LOCK_LIST = "lock_list"
+    UNLOCK_LIST = "unlock_list"
+    ADD_ITEM = "add_item"
+    UPDATE_ITEM = "update_item"
+    DELETE_ITEM = "delete_item"
+    UPDATE_ORDER = "update_order"
     VOTE = "vote"
+    LEAVE_LOBBY = "leave_lobby"
+    CLOSE_LOBBY = "close_lobby"
+    BACK_TO_LOBBY = "back_to_lobby"
     PING = "ping"
-    UPDATE_LIST_ITEM = "update_list_item"
-    ADD_LIST_ITEM = "add_list_item"
-    DELETE_LIST_ITEM = "delete_list_item"
-    UPDATE_ITEM_ORDER = "update_item_order"
 
 
 class WSMessage(BaseModel):
-    """Структура сообщения WebSocket"""
+    """Сообщение WebSocket"""
     type: str
     payload: Dict[str, Any] = Field(default_factory=dict)

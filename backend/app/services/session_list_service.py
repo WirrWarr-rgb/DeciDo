@@ -1,5 +1,5 @@
 # app/services/session_list_service.py
-from typing import List, Optional, Dict, Any
+from typing import Optional, List, Dict, Any
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -10,48 +10,56 @@ from app.models.user import User
 
 
 class SessionListService:
-    """Сервис для управления временным списком сессии"""
+    """Сервис для управления списками в лобби"""
     
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def create_session_list(
+    async def create_list_from_original(
         self, 
         session_id: int, 
-        original_list_id: int
+        original_list_id: int,
+        set_active: bool = True
     ) -> SessionList:
-        """
-        Создать временный список для сессии путём копирования оригинального.
-        """
-        # Получаем оригинальный список с пунктами
+        """Создать список в лобби из оригинального списка пользователя"""
+        
+        # Получаем оригинальный список
         result = await self.db.execute(
             select(ItemList)
             .options(selectinload(ItemList.items))
             .where(ItemList.id == original_list_id)
         )
-        original_list = result.scalar_one_or_none()
+        original = result.scalar_one_or_none()
         
-        if not original_list:
-            raise ValueError(f"Original list {original_list_id} not found")
+        if not original:
+            raise ValueError("Original list not found")
         
-        # Создаём временный список
+        # Если делаем активным, сбрасываем флаг у других списков
+        if set_active:
+            await self.db.execute(
+                update(SessionList)
+                .where(SessionList.session_id == session_id)
+                .values(is_active=False)
+            )
+        
+        # Создаём новый список
         session_list = SessionList(
             session_id=session_id,
             original_list_id=original_list_id,
-            name=original_list.name
+            name=original.name,
+            is_active=set_active
         )
         self.db.add(session_list)
         await self.db.flush()
         
         # Копируем пункты
-        for item in original_list.items:
+        for item in original.items:
             session_item = SessionListItem(
                 session_list_id=session_list.id,
                 name=item.name,
                 description=item.description,
                 image_url=item.image_url,
-                order_index=item.order_index,
-                created_by=None  # Системное создание
+                order_index=item.order_index
             )
             self.db.add(session_item)
         
@@ -60,63 +68,113 @@ class SessionListService:
         
         return session_list
     
-    async def get_session_list(self, session_id: int) -> Optional[SessionList]:
-        """Получить временный список сессии."""
+    async def switch_active_list(self, session_id: int, new_list_id: int) -> SessionList:
+        """Сменить активный список в лобби"""
+        
+        # Проверяем, что список принадлежит сессии
+        result = await self.db.execute(
+            select(SessionList)
+            .options(selectinload(SessionList.items))
+            .where(
+                SessionList.id == new_list_id,
+                SessionList.session_id == session_id
+            )
+        )
+        new_list = result.scalar_one_or_none()
+        
+        if not new_list:
+            raise ValueError("List not found in this session")
+        
+        # Сбрасываем активность у всех списков
+        await self.db.execute(
+            update(SessionList)
+            .where(SessionList.session_id == session_id)
+            .values(is_active=False)
+        )
+        
+        # Делаем выбранный список активным
+        new_list.is_active = True
+        
+        # Обновляем current_list_id в сессии
+        session = await self.db.get(Session, session_id)
+        session.current_list_id = new_list.id
+        
+        await self.db.commit()
+        await self.db.refresh(new_list)
+        
+        return new_list
+    
+    async def get_active_list(self, session_id: int) -> Optional[SessionList]:
+        """Получить активный список лобби"""
+        result = await self.db.execute(
+            select(SessionList)
+            .options(selectinload(SessionList.items))
+            .where(
+                SessionList.session_id == session_id,
+                SessionList.is_active == True
+            )
+        )
+        return result.scalar_one_or_none()
+    
+    async def get_session_lists(self, session_id: int) -> List[SessionList]:
+        """Получить все списки лобби"""
         result = await self.db.execute(
             select(SessionList)
             .options(selectinload(SessionList.items))
             .where(SessionList.session_id == session_id)
+            .order_by(SessionList.created_at.desc())
         )
-        return result.scalar_one_or_none()
+        return result.scalars().all()
     
     async def add_item(
         self, 
         session_id: int, 
         user_id: int,
-        name: str, 
+        name: str,
         description: Optional[str] = None,
         image_url: Optional[str] = None
     ) -> SessionListItem:
-        """Добавить пункт во временный список."""
-        session_list = await self.get_session_list(session_id)
-        if not session_list:
-            raise ValueError("Session list not found")
+        """Добавить пункт в активный список"""
         
-        # Проверяем, что сессия в статусе редактирования или отсчёта
-        session = await self._get_session(session_id)
-        if session.status not in [SessionStatus.LOBBY_EDITING, SessionStatus.LOBBY_COUNTDOWN]:
-            raise ValueError("Cannot edit list in current session status")
+        active_list = await self.get_active_list(session_id)
+        if not active_list:
+            raise ValueError("No active list found")
         
-        # Определяем order_index (в конец списка)
-        max_order = max([item.order_index for item in session_list.items], default=-1)
+        # Проверяем, не заблокирован ли список
+        session = await self.db.get(Session, session_id)
+        if session.list_locked:
+            raise ValueError("List is locked")
         
-        new_item = SessionListItem(
-            session_list_id=session_list.id,
+        # Определяем order_index
+        max_order = max([item.order_index for item in active_list.items], default=-1)
+        
+        item = SessionListItem(
+            session_list_id=active_list.id,
             name=name,
             description=description,
             image_url=image_url,
             order_index=max_order + 1,
             created_by=user_id
         )
-        self.db.add(new_item)
+        self.db.add(item)
         await self.db.commit()
-        await self.db.refresh(new_item)
+        await self.db.refresh(item)
         
-        return new_item
+        return item
     
     async def update_item(
         self,
         session_id: int,
         item_id: int,
-        user_id: int,
         name: Optional[str] = None,
         description: Optional[str] = None,
         image_url: Optional[str] = None
     ) -> SessionListItem:
-        """Обновить пункт временного списка."""
-        session = await self._get_session(session_id)
-        if session.status not in [SessionStatus.LOBBY_EDITING, SessionStatus.LOBBY_COUNTDOWN]:
-            raise ValueError("Cannot edit list in current session status")
+        """Обновить пункт"""
+        
+        session = await self.db.get(Session, session_id)
+        if session.list_locked:
+            raise ValueError("List is locked")
         
         result = await self.db.execute(
             select(SessionListItem)
@@ -144,10 +202,11 @@ class SessionListService:
         return item
     
     async def delete_item(self, session_id: int, item_id: int) -> None:
-        """Удалить пункт из временного списка."""
-        session = await self._get_session(session_id)
-        if session.status not in [SessionStatus.LOBBY_EDITING, SessionStatus.LOBBY_COUNTDOWN]:
-            raise ValueError("Cannot edit list in current session status")
+        """Удалить пункт"""
+        
+        session = await self.db.get(Session, session_id)
+        if session.list_locked:
+            raise ValueError("List is locked")
         
         result = await self.db.execute(
             select(SessionListItem)
@@ -170,49 +229,26 @@ class SessionListService:
         session_id: int, 
         items_order: List[Dict[str, int]]
     ) -> List[SessionListItem]:
-        """Обновить порядок пунктов."""
-        session = await self._get_session(session_id)
-        if session.status not in [SessionStatus.LOBBY_EDITING, SessionStatus.LOBBY_COUNTDOWN]:
-            raise ValueError("Cannot edit list in current session status")
+        """Обновить порядок пунктов"""
         
-        session_list = await self.get_session_list(session_id)
-        if not session_list:
-            raise ValueError("Session list not found")
-        
-        # Создаём словарь существующих ID для проверки
-        existing_ids = {item.id for item in session_list.items}
+        session = await self.db.get(Session, session_id)
+        if session.list_locked:
+            raise ValueError("List is locked")
         
         for item_data in items_order:
-            item_id = item_data.get("id")
-            order_index = item_data.get("order_index")
-            
-            if item_id not in existing_ids:
-                continue
-            
             await self.db.execute(
                 update(SessionListItem)
-                .where(SessionListItem.id == item_id)
-                .values(order_index=order_index)
+                .where(SessionListItem.id == item_data["id"])
+                .values(order_index=item_data["order_index"])
             )
         
         await self.db.commit()
         
-        # Возвращаем обновлённый список
-        await self.db.refresh(session_list)
-        return session_list.items
+        active_list = await self.get_active_list(session_id)
+        return active_list.items if active_list else []
     
-    async def _get_session(self, session_id: int) -> Session:
-        """Получить сессию по ID."""
-        result = await self.db.execute(
-            select(Session).where(Session.id == session_id)
-        )
-        session = result.scalar_one_or_none()
-        if not session:
-            raise ValueError(f"Session {session_id} not found")
-        return session
-    
-    async def get_item_creator_name(self, item: SessionListItem) -> Optional[str]:
-        """Получить имя создателя пункта."""
+    async def get_creator_name(self, item: SessionListItem) -> Optional[str]:
+        """Получить имя создателя пункта"""
         if item.created_by:
             result = await self.db.execute(
                 select(User).where(User.id == item.created_by)
