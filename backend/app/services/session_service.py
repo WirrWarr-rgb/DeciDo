@@ -1,210 +1,362 @@
-# app/services/session_service.py (обновлённая версия)
-import asyncio
+# app/services/session_service.py
 import random
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any, Tuple
 
-from sqlalchemy import select, and_, update
+from sqlalchemy import select, and_, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.session import (
-    Session, SessionParticipant, SessionResult, 
-    SessionStatus, SessionMode, SessionList, SessionListItem
+    Session, SessionParticipant, SessionResult,
+    SessionStatus, SessionMode, SessionList, SessionListItem,
+    ParticipantStatus
 )
-from app.models.group import GroupMember
 from app.models.user import User
 from app.services.session_list_service import SessionListService
 
 
 class SessionService:
-    """Сервис для управления сессиями голосования"""
-
+    """Сервис для управления лобби"""
+    
     def __init__(self, db: AsyncSession):
         self.db = db
         self.list_service = SessionListService(db)
-
-    async def create_session(
+    
+    # ============= Создание лобби =============
+    
+    async def create_lobby(
         self,
-        group_id: int,
-        original_list_id: int,
-        mode: SessionMode,
-        created_by: int,
-        countdown_duration: int = 60,
+        owner_id: int,
+        friend_ids: List[int],
+        list_id: int,
+        mode: SessionMode = SessionMode.RANKING,
         voting_duration: int = 120
     ) -> Session:
-        """
-        Создать новую сессию голосования с временным списком.
-        """
-        # Проверяем, что нет активной сессии в этой группе
-        active_session = await self.db.execute(
-            select(Session).where(
-                and_(
-                    Session.group_id == group_id,
-                    Session.status.in_([
-                        SessionStatus.LOBBY_EDITING,
-                        SessionStatus.LOBBY_COUNTDOWN,
-                        SessionStatus.VOTING,
-                        SessionStatus.RESULTS
-                    ])
-                )
-            )
-        )
-        if active_session.scalar_one_or_none():
-            raise ValueError("Group already has an active session")
-
-        # Создаем сессию
+        """Создать новое лобби"""
+        
+        # Создаём сессию
         session = Session(
-            group_id=group_id,
-            original_list_id=original_list_id,
-            created_by=created_by,
+            owner_id=owner_id,
             mode=mode,
-            status=SessionStatus.LOBBY_EDITING,
-            countdown_duration=countdown_duration,
+            status=SessionStatus.WAITING,
             voting_duration=voting_duration
         )
         self.db.add(session)
         await self.db.flush()
-
-        # Создаём временный список
-        await self.list_service.create_session_list(session.id, original_list_id)
-
-        # Добавляем всех участников группы как участников сессии
-        members_result = await self.db.execute(
-            select(GroupMember).where(GroupMember.group_id == group_id)
+        
+        # Создаём список из оригинального
+        session_list = await self.list_service.create_list_from_original(
+            session.id, list_id, set_active=True
         )
-        members = members_result.scalars().all()
-
-        for member in members:
+        session.current_list_id = session_list.id
+        
+        # Добавляем владельца как участника
+        owner_participant = SessionParticipant(
+            session_id=session.id,
+            user_id=owner_id,
+            status=ParticipantStatus.ACCEPTED,
+            is_ready=False,
+            joined_at=datetime.now(timezone.utc)
+        )
+        self.db.add(owner_participant)
+        
+        # Добавляем приглашённых друзей
+        for friend_id in friend_ids:
             participant = SessionParticipant(
                 session_id=session.id,
-                user_id=member.user_id,
-                is_ready=False  # Никто не готов изначально, даже создатель
+                user_id=friend_id,
+                status=ParticipantStatus.INVITED,
+                invited_by=owner_id
             )
             self.db.add(participant)
-
+        
         await self.db.commit()
         await self.db.refresh(session)
-
+        
         return session
-
-    async def mark_ready(self, session_id: int, user_id: int) -> Dict[str, Any]:
-        """
-        Отметить участника как готового.
-        Если это первый готовый - запускает таймер.
-        """
+    
+    # ============= Управление участниками =============
+    
+    async def accept_invite(self, session_id: int, user_id: int) -> SessionParticipant:
+        """Принять приглашение в лобби"""
+        
+        participant = await self._get_participant(session_id, user_id)
+        
+        if participant.status != ParticipantStatus.INVITED:
+            raise ValueError("User is not invited")
+        
+        participant.status = ParticipantStatus.ACCEPTED
+        participant.joined_at = datetime.now(timezone.utc)
+        
+        await self.db.commit()
+        await self.db.refresh(participant)
+        
+        # Проверяем, все ли приглашённые приняли
+        await self._check_all_accepted(session_id)
+        
+        return participant
+    
+    async def decline_invite(self, session_id: int, user_id: int) -> None:
+        """Отклонить приглашение"""
+        
+        participant = await self._get_participant(session_id, user_id)
+        
+        if participant.status != ParticipantStatus.INVITED:
+            raise ValueError("User is not invited")
+        
+        participant.status = ParticipantStatus.DECLINED
+        await self.db.commit()
+    
+    async def invite_friends(
+        self, 
+        session_id: int, 
+        inviter_id: int, 
+        friend_ids: List[int]
+    ) -> List[SessionParticipant]:
+        """Пригласить ещё друзей (только владелец)"""
+        
         session = await self._get_session(session_id)
         
-        if session.status not in [SessionStatus.LOBBY_EDITING, SessionStatus.LOBBY_COUNTDOWN]:
-            raise ValueError("Session is not in lobby state")
-
+        if session.owner_id != inviter_id:
+            raise ValueError("Only owner can invite")
+        
+        new_participants = []
+        for friend_id in friend_ids:
+            # Проверяем, не участвует ли уже
+            existing = await self.db.execute(
+                select(SessionParticipant).where(
+                    SessionParticipant.session_id == session_id,
+                    SessionParticipant.user_id == friend_id
+                )
+            )
+            if existing.scalar_one_or_none():
+                continue
+            
+            participant = SessionParticipant(
+                session_id=session_id,
+                user_id=friend_id,
+                status=ParticipantStatus.INVITED,
+                invited_by=inviter_id
+            )
+            self.db.add(participant)
+            new_participants.append(participant)
+        
+        await self.db.commit()
+        return new_participants
+    
+    async def leave_lobby(self, session_id: int, user_id: int) -> Dict[str, Any]:
+        """Выйти из лобби"""
+        
+        session = await self._get_session(session_id)
         participant = await self._get_participant(session_id, user_id)
-        if participant.is_ready:
-            return {"status": session.status.value, "already_ready": True}
-
-        was_countdown = (session.status == SessionStatus.LOBBY_COUNTDOWN)
+        
+        is_owner = (session.owner_id == user_id)
+        should_close = False
+        
+        if is_owner:
+            # Владелец выходит = закрытие лобби
+            should_close = True
+        elif session.status == SessionStatus.RESULTS:
+            # Обычный участник после результатов просто выходит
+            participant.status = ParticipantStatus.LEFT
+            participant.left_at = datetime.now(timezone.utc)
+        else:
+            # Во время активной сессии тоже можно выйти
+            participant.status = ParticipantStatus.LEFT
+            participant.left_at = datetime.now(timezone.utc)
+        
+        if should_close:
+            await self.close_lobby(session_id, user_id)
+        
+        await self.db.commit()
+        
+        return {
+            "left": True,
+            "lobby_closed": should_close
+        }
+    
+    async def close_lobby(self, session_id: int, user_id: int) -> None:
+        """Закрыть лобби (только владелец)"""
+        
+        session = await self._get_session(session_id)
+        
+        if session.owner_id != user_id:
+            raise ValueError("Only owner can close lobby")
+        
+        session.status = SessionStatus.CLOSED
+        session.closed_at = datetime.now(timezone.utc)
+        session.closed_by = user_id
+        
+        await self.db.commit()
+    
+    # ============= Управление списком =============
+    
+    async def change_list(self, session_id: int, user_id: int, new_list_id: int) -> SessionList:
+        """Сменить список (только владелец)"""
+        
+        session = await self._get_session(session_id)
+        
+        if session.owner_id != user_id:
+            raise ValueError("Only owner can change list")
+        
+        if session.status not in [SessionStatus.WAITING, SessionStatus.EDITING]:
+            raise ValueError("Cannot change list in current status")
+        
+        # Создаём новый список из оригинального
+        new_list = await self.list_service.create_list_from_original(
+            session_id, new_list_id, set_active=False
+        )
+        
+        # Переключаемся на него
+        await self.list_service.switch_active_list(session_id, new_list.id)
+        
+        return new_list
+    
+    async def lock_list(self, session_id: int, user_id: int) -> Session:
+        """Заблокировать список (только владелец)"""
+        
+        session = await self._get_session(session_id)
+        
+        if session.owner_id != user_id:
+            raise ValueError("Only owner can lock list")
+        
+        session.list_locked = True
+        await self.db.commit()
+        await self.db.refresh(session)
+        
+        return session
+    
+    async def unlock_list(self, session_id: int, user_id: int) -> Session:
+        """Разблокировать список (только владелец)"""
+        
+        session = await self._get_session(session_id)
+        
+        if session.owner_id != user_id:
+            raise ValueError("Only owner can unlock list")
+        
+        session.list_locked = False
+        await self.db.commit()
+        await self.db.refresh(session)
+        
+        return session
+    
+    # ============= Готовность и старт =============
+    
+    async def mark_ready(self, session_id: int, user_id: int) -> SessionParticipant:
+        """Отметить готовность"""
+        
+        session = await self._get_session(session_id)
+        
+        if session.status != SessionStatus.EDITING:
+            raise ValueError("Lobby is not in editing state")
+        
+        participant = await self._get_participant(session_id, user_id)
+        
+        if participant.status != ParticipantStatus.ACCEPTED:
+            raise ValueError("User is not an active participant")
         
         participant.is_ready = True
         participant.ready_at = datetime.now(timezone.utc)
         
-        # Если это первый готовый и таймер ещё не запущен
-        if not was_countdown and session.status == SessionStatus.LOBBY_EDITING:
-            # Проверяем, что это действительно первый
-            ready_count = await self._count_ready_participants(session_id)
-            if ready_count == 1:
-                session.status = SessionStatus.LOBBY_COUNTDOWN
-                now = datetime.now(timezone.utc)
-                session.countdown_ends_at = now + timedelta(seconds=session.countdown_duration)
-        
         await self.db.commit()
         await self.db.refresh(participant)
-
+        
         # Проверяем, все ли готовы
-        all_ready = await self._check_all_ready(session_id)
-        if all_ready:
-            await self._transition_to_voting(session_id)
-
-        return {
-            "status": session.status.value,
-            "countdown_started": (not was_countdown and session.status == SessionStatus.LOBBY_COUNTDOWN),
-            "all_ready": all_ready
-        }
-
+        await self._check_all_ready(session_id)
+        
+        return participant
+    
+    async def force_start(self, session_id: int, user_id: int) -> Session:
+        """Принудительно начать голосование (только владелец)"""
+        
+        session = await self._get_session(session_id)
+        
+        if session.owner_id != user_id:
+            raise ValueError("Only owner can force start")
+        
+        if session.status not in [SessionStatus.EDITING, SessionStatus.READY]:
+            raise ValueError("Cannot start in current status")
+        
+        return await self._start_voting(session_id)
+    
+    # ============= Голосование =============
+    
     async def submit_vote(
         self,
         session_id: int,
         user_id: int,
         ranked_item_ids: Optional[List[int]] = None,
         spin: bool = False
-    ) -> Tuple[bool, Dict[str, Any]]:
-        """
-        Отправить голос.
-        """
+    ) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        """Отправить голос"""
+        
         session = await self._get_session(session_id)
+        
         if session.status != SessionStatus.VOTING:
-            raise ValueError("Session is not in voting state")
-
+            raise ValueError("Voting is not active")
+        
         participant = await self._get_participant(session_id, user_id)
+        
         if participant.has_voted:
-            raise ValueError("User has already voted")
-
-        # Получаем временный список для валидации
-        session_list = await self.list_service.get_session_list(session_id)
-        if not session_list:
-            raise ValueError("Session list not found")
-
+            raise ValueError("Already voted")
+        
+        active_list = await self.list_service.get_active_list(session_id)
+        if not active_list:
+            raise ValueError("No active list")
+        
         if session.mode == SessionMode.RANKING:
             if not ranked_item_ids:
-                raise ValueError("ranked_item_ids required for ranking mode")
+                raise ValueError("ranked_item_ids required")
             
-            # Проверяем, что все ID из временного списка
-            valid_ids = {item.id for item in session_list.items}
+            valid_ids = {item.id for item in active_list.items}
             if set(ranked_item_ids) != valid_ids:
-                raise ValueError(f"Ranked IDs must contain exactly all session list items. Expected {valid_ids}")
+                raise ValueError("Must include all items exactly once")
             
             participant.vote_data = {"ranked_ids": ranked_item_ids}
-        elif session.mode == SessionMode.RANDOM:
-            if not spin:
-                raise ValueError("spin flag required for random mode")
-            participant.has_spun = True
         else:
-            raise ValueError(f"Unknown session mode: {session.mode}")
-
+            if not spin:
+                raise ValueError("spin required for random mode")
+            participant.has_spun = True
+        
         participant.has_voted = True
         participant.voted_at = datetime.now(timezone.utc)
+        
         await self.db.commit()
-
+        
+        # Проверяем, все ли проголосовали
         all_voted = await self._check_all_voted(session_id)
         results = None
-
+        
         if all_voted:
             results = await self._calculate_results(session_id)
-
+        
         return all_voted, results
-
-    async def reset_for_new_round(self, session_id: int, user_id: int) -> Session:
-        """
-        Сбросить сессию для нового раунда после показа результатов.
-        Только создатель может сбросить.
-        """
+    
+    async def back_to_lobby(self, session_id: int, user_id: int) -> Session:
+        """Вернуться в лобби после результатов (только владелец)"""
+        
         session = await self._get_session(session_id)
+        
+        if session.owner_id != user_id:
+            raise ValueError("Only owner can go back to lobby")
         
         if session.status != SessionStatus.RESULTS:
             raise ValueError("Session is not in results state")
         
-        if session.created_by != user_id:
-            raise ValueError("Only session creator can reset for new round")
-        
         # Сбрасываем статус
-        session.status = SessionStatus.LOBBY_EDITING
-        session.countdown_ends_at = None
+        session.status = SessionStatus.EDITING
+        session.started_at = None
         session.voting_ends_at = None
         session.results_json = None
         
-        # Сбрасываем готовность и голоса участников
+        # Сбрасываем голоса и готовность
         await self.db.execute(
             update(SessionParticipant)
-            .where(SessionParticipant.session_id == session_id)
+            .where(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.status == ParticipantStatus.ACCEPTED
+            )
             .values(
                 is_ready=False,
                 has_voted=False,
@@ -216,7 +368,6 @@ class SessionService:
         )
         
         # Удаляем старые результаты
-        from sqlalchemy import delete
         await self.db.execute(
             delete(SessionResult).where(SessionResult.session_id == session_id)
         )
@@ -225,25 +376,28 @@ class SessionService:
         await self.db.refresh(session)
         
         return session
-
+    
+    # ============= Подсчёт результатов =============
+    
     async def _calculate_results(self, session_id: int) -> Dict[str, Any]:
-        """Подсчет результатов голосования."""
-        session = await self._get_session(session_id, load_participants=True)
-        session_list = await self.list_service.get_session_list(session_id)
+        """Подсчитать результаты голосования"""
         
-        if not session_list:
-            raise ValueError("Session list not found")
-
+        session = await self._get_session(session_id, load_participants=True)
+        active_list = await self.list_service.get_active_list(session_id)
+        
+        if not active_list:
+            raise ValueError("No active list")
+        
         if session.mode == SessionMode.RANDOM:
-            results = await self._calculate_random_results(session, session_list)
+            results = await self._calculate_random_results(session, active_list)
         else:
-            results = await self._calculate_ranking_results(session, session_list)
-
+            results = await self._calculate_ranking_results(session, active_list)
+        
         session.results_json = results
         session.status = SessionStatus.RESULTS
         session.completed_at = datetime.now(timezone.utc)
-
-        # Сохраняем в таблицу SessionResult
+        
+        # Сохраняем в таблицу
         for item_result in results["results"]:
             session_result = SessionResult(
                 session_id=session_id,
@@ -252,39 +406,42 @@ class SessionService:
                 place=item_result["place"]
             )
             self.db.add(session_result)
-
+        
         await self.db.commit()
-
+        
         return results
-
+    
     async def _calculate_ranking_results(
         self, 
         session: Session, 
-        session_list: SessionList
+        active_list: SessionList
     ) -> Dict[str, Any]:
-        """Подсчет результатов для режима ранжирования."""
-        items = session_list.items
+        """Подсчёт для ранжирования"""
+        
+        items = active_list.items
         n_items = len(items)
-
+        
         if n_items == 0:
-            raise ValueError("List has no items")
-
+            raise ValueError("List is empty")
+        
         scores = {item.id: 0 for item in items}
-
-        for participant in session.participants:
-            if not participant.has_voted or not participant.vote_data:
+        voted_count = 0
+        
+        for p in session.participants:
+            if p.status != ParticipantStatus.ACCEPTED:
                 continue
-
-            ranked_ids = participant.vote_data.get("ranked_ids", [])
-            if not ranked_ids:
+            if not p.has_voted or not p.vote_data:
                 continue
-
+            
+            voted_count += 1
+            ranked_ids = p.vote_data.get("ranked_ids", [])
+            
             for position, item_id in enumerate(ranked_ids):
                 points = n_items - position
                 scores[item_id] = scores.get(item_id, 0) + points
-
+        
         sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-
+        
         results = []
         for place, (item_id, score) in enumerate(sorted_scores, 1):
             item = next((i for i in items if i.id == item_id), None)
@@ -294,168 +451,195 @@ class SessionService:
                 "total_score": score,
                 "place": place
             })
-
-        winner = results[0] if results else None
-
+        
         return {
             "session_id": session.id,
-            "mode": session.mode.value,
-            "winner": winner,
-            "results": results
+            "winner": results[0] if results else None,
+            "results": results,
+            "participants_count": len([p for p in session.participants if p.status == ParticipantStatus.ACCEPTED]),
+            "voted_count": voted_count
         }
-
+    
     async def _calculate_random_results(
         self, 
         session: Session, 
-        session_list: SessionList
+        active_list: SessionList
     ) -> Dict[str, Any]:
-        """Подсчет результатов для режима колеса."""
-        items = session_list.items
-
+        """Подсчёт для колеса"""
+        
+        items = active_list.items
+        
         if not items:
-            raise ValueError("List has no items")
-
-        winner_item = random.choice(items)
-
+            raise ValueError("List is empty")
+        
+        winner = random.choice(items)
+        
         results = []
-        for place, item in enumerate(items, 1):
+        for item in items:
             results.append({
                 "item_id": item.id,
                 "item_name": item.name,
-                "total_score": 1 if item.id == winner_item.id else 0,
-                "place": place if item.id != winner_item.id else 1
+                "total_score": 1 if item.id == winner.id else 0,
+                "place": 1 if item.id == winner.id else 2
             })
-
-        results.sort(key=lambda x: (x["place"] != 1, x["place"]))
-
+        
+        results.sort(key=lambda x: x["place"])
+        
+        accepted = [p for p in session.participants if p.status == ParticipantStatus.ACCEPTED]
+        
         return {
             "session_id": session.id,
-            "mode": session.mode.value,
             "winner": {
-                "item_id": winner_item.id,
-                "item_name": winner_item.name,
+                "item_id": winner.id,
+                "item_name": winner.name,
                 "total_score": 1,
                 "place": 1
             },
-            "results": results
+            "results": results,
+            "participants_count": len(accepted),
+            "voted_count": len([p for p in accepted if p.has_voted or p.has_spun])
         }
-
-    async def _check_all_ready(self, session_id: int) -> bool:
-        """Проверить, все ли участники отметились готовыми."""
+    
+    # ============= Вспомогательные методы =============
+    
+    async def _check_all_accepted(self, session_id: int) -> None:
+        """Проверить, все ли приглашённые приняли"""
+        
         result = await self.db.execute(
             select(SessionParticipant).where(
-                and_(
-                    SessionParticipant.session_id == session_id,
-                    SessionParticipant.is_ready == False
-                )
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.status == ParticipantStatus.INVITED
+            )
+        )
+        pending = result.scalars().all()
+        
+        if not pending:
+            session = await self._get_session(session_id)
+            if session.status == SessionStatus.WAITING:
+                session.status = SessionStatus.EDITING
+                await self.db.commit()
+    
+    async def _check_all_ready(self, session_id: int) -> None:
+        """Проверить, все ли готовы"""
+        
+        result = await self.db.execute(
+            select(SessionParticipant).where(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.status == ParticipantStatus.ACCEPTED,
+                SessionParticipant.is_ready == False
             )
         )
         not_ready = result.scalars().all()
-        return len(not_ready) == 0
-
-    async def _count_ready_participants(self, session_id: int) -> int:
-        """Посчитать количество готовых участников."""
-        result = await self.db.execute(
-            select(SessionParticipant).where(
-                and_(
-                    SessionParticipant.session_id == session_id,
-                    SessionParticipant.is_ready == True
-                )
-            )
-        )
-        return len(result.scalars().all())
-
+        
+        if not not_ready:
+            await self._start_voting(session_id)
+    
     async def _check_all_voted(self, session_id: int) -> bool:
-        """Проверить, все ли участники проголосовали."""
+        """Проверить, все ли проголосовали"""
+        
         result = await self.db.execute(
             select(SessionParticipant).where(
-                and_(
-                    SessionParticipant.session_id == session_id,
-                    SessionParticipant.has_voted == False
-                )
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.status == ParticipantStatus.ACCEPTED,
+                SessionParticipant.has_voted == False
             )
         )
         not_voted = result.scalars().all()
+        
         return len(not_voted) == 0
-
-    async def _transition_to_voting(self, session_id: int) -> None:
-        """Перевести сессию в состояние голосования."""
+    
+    async def _start_voting(self, session_id: int) -> Session:
+        """Начать голосование"""
+        
         session = await self._get_session(session_id)
         now = datetime.now(timezone.utc)
-
+        
         session.status = SessionStatus.VOTING
+        session.started_at = now
         session.voting_ends_at = now + timedelta(seconds=session.voting_duration)
-
+        
         await self.db.commit()
-
+        await self.db.refresh(session)
+        
+        return session
+    
     async def _get_session(
         self, 
         session_id: int, 
         load_participants: bool = False
     ) -> Session:
-        """Получить сессию по ID."""
+        """Получить сессию"""
+        
         query = select(Session).where(Session.id == session_id)
-
+        
         if load_participants:
             query = query.options(selectinload(Session.participants))
-
+        
         result = await self.db.execute(query)
         session = result.scalar_one_or_none()
+        
         if not session:
-            raise ValueError(f"Session {session_id} not found")
+            raise ValueError("Session not found")
+        
         return session
-
+    
     async def _get_participant(self, session_id: int, user_id: int) -> SessionParticipant:
-        """Получить запись участника сессии."""
+        """Получить участника"""
+        
         result = await self.db.execute(
             select(SessionParticipant).where(
-                and_(
-                    SessionParticipant.session_id == session_id,
-                    SessionParticipant.user_id == user_id
-                )
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.user_id == user_id
             )
         )
         participant = result.scalar_one_or_none()
+        
         if not participant:
-            raise ValueError(f"User {user_id} is not a participant of session {session_id}")
+            raise ValueError("User is not a participant")
+        
         return participant
-
-    async def get_session_detail(self, session_id: int, user_id: int) -> Dict[str, Any]:
-        """Получить детальную информацию о сессии."""
+    
+    # ============= Получение информации =============
+    
+    async def get_lobby(self, session_id: int, user_id: int) -> Dict[str, Any]:
+        """Получить полную информацию о лобби"""
+        
         session = await self._get_session(session_id, load_participants=True)
-
+        active_list = await self.list_service.get_active_list(session_id)
+        
+        # Проверяем, есть ли пользователь в участниках
         participant = next(
-            (p for p in session.participants if p.user_id == user_id), 
+            (p for p in session.participants if p.user_id == user_id),
             None
         )
+        
         if not participant:
-            raise ValueError("User is not a participant of this session")
-
-        participants_info = []
+            raise ValueError("User is not a participant")
+        
+        is_owner = (session.owner_id == user_id)
+        
+        # Формируем участников
+        participants = []
         for p in session.participants:
-            user_result = await self.db.execute(
-                select(User).where(User.id == p.user_id)
-            )
-            user = user_result.scalar_one()
-            participants_info.append({
+            user = await self.db.get(User, p.user_id)
+            participants.append({
                 "user_id": p.user_id,
-                "username": user.username,
+                "username": user.username if user else "Unknown",
+                "status": p.status.value,
                 "is_ready": p.is_ready,
                 "has_voted": p.has_voted,
-                "has_spun": p.has_spun,
-                "is_creator": (p.user_id == session.created_by),
-                "joined_at": p.joined_at,
-                "ready_at": p.ready_at
+                "is_owner": (p.user_id == session.owner_id),
+                "invited_at": p.invited_at,
+                "joined_at": p.joined_at
             })
-
-        # Получаем временный список
-        session_list = await self.list_service.get_session_list(session_id)
+        
+        # Формируем список
         list_data = None
-        if session_list:
-            items_data = []
-            for item in session_list.items:
-                creator_name = await self.list_service.get_item_creator_name(item)
-                items_data.append({
+        if active_list:
+            items = []
+            for item in active_list.items:
+                creator_name = await self.list_service.get_creator_name(item)
+                items.append({
                     "id": item.id,
                     "name": item.name,
                     "description": item.description,
@@ -464,72 +648,106 @@ class SessionService:
                     "created_by": item.created_by,
                     "creator_name": creator_name
                 })
+            
             list_data = {
-                "id": session_list.id,
-                "session_id": session_list.session_id,
-                "name": session_list.name,
-                "items": items_data,
-                "created_at": session_list.created_at,
-                "updated_at": session_list.updated_at
+                "id": active_list.id,
+                "name": active_list.name,
+                "is_active": active_list.is_active,
+                "items": items,
+                "created_at": active_list.created_at
             }
-
-        # Определяем, может ли пользователь редактировать список
-        can_edit = (
-            session.status in [SessionStatus.LOBBY_EDITING, SessionStatus.LOBBY_COUNTDOWN]
-            and not participant.is_ready  # Кто нажал "Готов" - не может редактировать
+        
+        # Получаем имя владельца
+        owner = await self.db.get(User, session.owner_id)
+        
+        # Определяем права
+        can_edit_list = (
+            not session.list_locked and
+            session.status in [SessionStatus.WAITING, SessionStatus.EDITING]
         )
-
+        can_start = (
+            is_owner and
+            session.status == SessionStatus.EDITING
+        )
+        can_invite = (
+            is_owner and
+            session.status in [SessionStatus.WAITING, SessionStatus.EDITING]
+        )
+        can_lock_list = (
+            is_owner and
+            session.status in [SessionStatus.WAITING, SessionStatus.EDITING]
+        )
+        
         return {
             "id": session.id,
-            "group_id": session.group_id,
-            "original_list_id": session.original_list_id,
-            "created_by": session.created_by,
-            "mode": session.mode.value,
+            "owner_id": session.owner_id,
+            "owner_name": owner.username if owner else "Unknown",
             "status": session.status.value,
-            "countdown_duration": session.countdown_duration,
+            "mode": session.mode.value,
+            "list_locked": session.list_locked,
+            "current_list": list_data,
+            "participants": participants,
             "voting_duration": session.voting_duration,
-            "started_at": session.started_at,
-            "countdown_ends_at": session.countdown_ends_at,
-            "voting_ends_at": session.voting_ends_at,
-            "completed_at": session.completed_at,
             "created_at": session.created_at,
-            "participants": participants_info,
-            "session_list": list_data,
+            "voting_ends_at": session.voting_ends_at,
             "results": session.results_json,
-            "can_edit": can_edit,
-            "is_creator": (session.created_by == user_id)
+            "is_owner": is_owner,
+            "can_edit_list": can_edit_list,
+            "can_start": can_start,
+            "can_invite": can_invite,
+            "can_lock_list": can_lock_list
         }
-
-    async def check_timers_and_transition(self) -> List[int]:
-        """Проверить все активные сессии на истечение таймеров."""
-        now = datetime.now(timezone.utc)
-        updated_sessions = []
-
-        # Сессии в отсчёте с истекшим таймером
-        expired_countdown = await self.db.execute(
-            select(Session).where(
-                and_(
-                    Session.status == SessionStatus.LOBBY_COUNTDOWN,
-                    Session.countdown_ends_at <= now
-                )
+    
+    async def get_my_lobbies(self, user_id: int) -> Dict[str, List]:
+        """Получить все лобби пользователя"""
+        
+        # Активные лобби (участник)
+        active_result = await self.db.execute(
+            select(Session)
+            .join(SessionParticipant)
+            .where(
+                SessionParticipant.user_id == user_id,
+                SessionParticipant.status == ParticipantStatus.ACCEPTED,
+                Session.status.in_([
+                    SessionStatus.WAITING,
+                    SessionStatus.EDITING,
+                    SessionStatus.READY,
+                    SessionStatus.VOTING,
+                    SessionStatus.RESULTS
+                ])
             )
+            .order_by(Session.created_at.desc())
         )
-        for session in expired_countdown.scalars().all():
-            await self._transition_to_voting(session.id)
-            updated_sessions.append(session.id)
-
-        # Сессии в голосовании с истекшим таймером
-        expired_voting = await self.db.execute(
-            select(Session).where(
-                and_(
-                    Session.status == SessionStatus.VOTING,
-                    Session.voting_ends_at <= now
-                )
+        active = active_result.scalars().all()
+        
+        # Приглашения
+        invitations_result = await self.db.execute(
+            select(Session)
+            .join(SessionParticipant)
+            .where(
+                SessionParticipant.user_id == user_id,
+                SessionParticipant.status == ParticipantStatus.INVITED,
+                Session.status != SessionStatus.CLOSED
             )
+            .order_by(Session.created_at.desc())
         )
-        for session in expired_voting.scalars().all():
-            await self._calculate_results(session.id)
-            updated_sessions.append(session.id)
-
-        await self.db.commit()
-        return updated_sessions
+        invitations = invitations_result.scalars().all()
+        
+        # История (закрытые или покинутые)
+        history_result = await self.db.execute(
+            select(Session)
+            .join(SessionParticipant)
+            .where(
+                SessionParticipant.user_id == user_id,
+                Session.status.in_([SessionStatus.CLOSED])
+            )
+            .order_by(Session.closed_at.desc())
+            .limit(50)
+        )
+        history = history_result.scalars().all()
+        
+        return {
+            "active": [await self.get_lobby(s.id, user_id) for s in active],
+            "invitations": [await self.get_lobby(s.id, user_id) for s in invitations],
+            "history": [await self.get_lobby(s.id, user_id) for s in history]
+        }

@@ -146,3 +146,13 @@ class ConnectionManager:
 
 # Глобальный экземпляр менеджера
 manager = ConnectionManager(redis_url=getattr(settings, 'REDIS_URL', 'redis://localhost:6379'))
+
+async def send_to_user(self, user_id: int, message: Dict[str, Any]):
+    """Отправить сообщение конкретному пользователю (во всех его сессиях)"""
+    # Ищем все сессии, где есть этот пользователь
+    for session_id, connections in self.local_connections.items():
+        if user_id in connections:
+            try:
+                await connections[user_id].send_json(message)
+            except:
+                pass  # Игнорируем ошибки

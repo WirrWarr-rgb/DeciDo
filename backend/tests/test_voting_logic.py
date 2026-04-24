@@ -32,7 +32,6 @@ class TestVotingLogic:
         """Пример сессии."""
         session = Session(
             id=1,
-            group_id=1,
             list_id=1,
             mode=SessionMode.RANKING,
             status=SessionStatus.VOTING
