@@ -11,26 +11,27 @@ import enum
 
 class SessionStatus(str, enum.Enum):
     """Статусы сессии"""
-    WAITING = "waiting"          # Ожидание принятия приглашений
-    EDITING = "editing"          # Редактирование списка
-    READY = "ready"              # Владелец нажал "Начать", скоро голосование
-    VOTING = "voting"            # Активное голосование
-    RESULTS = "results"          # Результаты показаны
-    CLOSED = "closed"            # Закрыто владельцем
+    WAITING = "waiting"
+    EDITING = "editing"
+    READY = "ready"
+    VOTING = "voting"
+    RESULTS = "results"
+    CLOSED = "closed"
 
 
 class SessionMode(str, enum.Enum):
     """Режимы голосования"""
-    RANDOM = "random"    # Колесо фортуны
-    RANKING = "ranking"  # Ранжирование
+    RANDOM = "random"
+    RANKING = "ranking"
 
 
 class ParticipantStatus(str, enum.Enum):
     """Статус участника в сессии"""
-    INVITED = "invited"      # Приглашён, ещё не ответил
-    ACCEPTED = "accepted"    # Принял приглашение
-    DECLINED = "declined"    # Отклонил приглашение
-    LEFT = "left"            # Вышел из лобби
+    INVITED = "invited"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    LEFT = "left"
+    KICKED = "kicked"
 
 
 class Session(Base):
@@ -40,28 +41,25 @@ class Session(Base):
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
-    # Текущий активный список (из session_lists)
     current_list_id = Column(Integer, ForeignKey("session_lists.id", ondelete="SET NULL"), nullable=True)
     
     mode = Column(Enum(SessionMode), nullable=False, default=SessionMode.RANKING)
     status = Column(Enum(SessionStatus), default=SessionStatus.WAITING, nullable=False)
     
-    # Флаги
-    list_locked = Column(Boolean, default=False)   # Список закрыт для редактирования
-    auto_start = Column(Boolean, default=False)    # Начать без ожидания готовности
+    list_locked = Column(Boolean, default=False)
     
-    # Таймеры (в секундах)
-    voting_duration = Column(Integer, default=120)  # Время на голосование
+    voting_duration = Column(Integer, default=120)
     
-    # Временные метки
+    # Таймер готовности (когда заканчивается)
+    countdown_ends_at = Column(DateTime(timezone=True), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    started_at = Column(DateTime(timezone=True), nullable=True)   # Когда началось голосование
+    started_at = Column(DateTime(timezone=True), nullable=True)
     voting_ends_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     closed_at = Column(DateTime(timezone=True), nullable=True)
     closed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     
-    # JSON с итоговыми результатами
     results_json = Column(JSON, nullable=True)
     
     # Отношения
@@ -71,6 +69,7 @@ class Session(Base):
     session_lists = relationship(
         "SessionList", 
         back_populates="session",
+        foreign_keys="SessionList.session_id",
         cascade="all, delete-orphan"
     )
     
@@ -102,14 +101,17 @@ class SessionList(Base):
     original_list_id = Column(Integer, ForeignKey("lists.id", ondelete="SET NULL"), nullable=True)
     name = Column(String(100), nullable=False)
     
-    # Это активный список?
     is_active = Column(Boolean, default=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Отношения
-    session = relationship("Session", back_populates="session_lists")
+    session = relationship(
+        "Session", 
+        back_populates="session_lists",
+        foreign_keys=[session_id]
+    )
     original_list = relationship("ItemList", foreign_keys=[original_list_id])
     items = relationship(
         "SessionListItem", 
@@ -134,9 +136,14 @@ class SessionListItem(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     
+    # Блокировка редактирования
+    edited_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    edited_at = Column(DateTime(timezone=True), nullable=True)
+    
     # Отношения
     session_list = relationship("SessionList", back_populates="items")
     creator = relationship("User", foreign_keys=[created_by])
+    editor = relationship("User", foreign_keys=[edited_by])
 
 
 class SessionParticipant(Base):
@@ -147,19 +154,15 @@ class SessionParticipant(Base):
     session_id = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
-    # Статус участника
     status = Column(Enum(ParticipantStatus), default=ParticipantStatus.INVITED, nullable=False)
     
-    # Для голосования
     is_ready = Column(Boolean, default=False)
     has_voted = Column(Boolean, default=False)
     vote_data = Column(JSON, nullable=True)
     has_spun = Column(Boolean, default=False)
     
-    # Кто пригласил
     invited_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     
-    # Временные метки
     invited_at = Column(DateTime(timezone=True), server_default=func.now())
     joined_at = Column(DateTime(timezone=True), nullable=True)
     ready_at = Column(DateTime(timezone=True), nullable=True)

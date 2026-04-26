@@ -2,6 +2,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.session import SessionStatus, SessionMode, ParticipantStatus
 
 from app.core.database import get_db
 from app.models.user import User
@@ -581,22 +582,6 @@ async def submit_vote(
         raise HTTPException(status_code=422, detail=str(e))
 
 
-@router.get("/{session_id}/results", response_model=ResultsResponse)
-async def get_results(
-    session_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Получить результаты"""
-    service = SessionService(db)
-    lobby = await service.get_lobby(session_id, current_user.id)
-    
-    if lobby["status"] != "results":
-        raise HTTPException(status_code=400, detail="Results not ready")
-    
-    return lobby["results"]
-
-
 @router.post("/{session_id}/back-to-lobby")
 async def back_to_lobby(
     session_id: int,
@@ -621,3 +606,147 @@ async def back_to_lobby(
         
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+@router.post("/{session_id}/unready")
+async def mark_unready(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Отменить готовность"""
+    service = SessionService(db)
+    
+    try:
+        participant = await service.mark_unready(session_id, current_user.id)
+        
+        lobby = await service.get_lobby(session_id, current_user.id)
+        await manager.broadcast_to_session(
+            session_id,
+            {
+                "type": "timer_updated",
+                "payload": {
+                    "countdown_ends_at": lobby["countdown_ends_at"].isoformat() if lobby.get("countdown_ends_at") else None,
+                    "participants": lobby["participants"]
+                }
+            }
+        )
+        
+        return {"success": True}
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{session_id}/kick/{user_id}")
+async def kick_participant(
+    session_id: int,
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Изгнать участника (только хост)"""
+    service = SessionService(db)
+    
+    try:
+        await service.kick_participant(session_id, current_user.id, user_id)
+        
+        # Уведомляем изгнанного
+        await manager.send_to_user(
+            user_id,
+            {
+                "type": "navigate_to_home",
+                "payload": {"reason": "kicked", "lobby_id": session_id}
+            }
+        )
+        
+        # Уведомляем остальных
+        await manager.broadcast_to_session(
+            session_id,
+            {
+                "type": "participant_kicked",
+                "payload": {"user_id": user_id}
+            }
+        )
+        
+        return {"success": True}
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{session_id}/list/items/{item_id}/lock")
+async def lock_item(
+    session_id: int,
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Заблокировать элемент для редактирования"""
+    service = SessionService(db)
+    
+    try:
+        item = await service.lock_item_for_edit(item_id, current_user.id)
+        
+        await manager.broadcast_to_session(
+            session_id,
+            {
+                "type": "item_locked",
+                "payload": {
+                    "item_id": item_id,
+                    "edited_by": current_user.id,
+                    "editor_name": current_user.username
+                }
+            }
+        )
+        
+        return {"success": True, "item_id": item_id}
+        
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.post("/{session_id}/list/items/{item_id}/unlock")
+async def unlock_item(
+    session_id: int,
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Разблокировать элемент"""
+    service = SessionService(db)
+    
+    try:
+        await service.unlock_item(item_id, current_user.id)
+        
+        await manager.broadcast_to_session(
+            session_id,
+            {
+                "type": "item_unlocked",
+                "payload": {"item_id": item_id}
+            }
+        )
+        
+        return {"success": True}
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{session_id}/results")
+async def get_results(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Получить результаты"""
+    service = SessionService(db)
+    
+    session = await service._get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Исправлено — теперь SessionStatus доступен
+    if session.status not in [SessionStatus.RESULTS, SessionStatus.CLOSED]:
+        raise HTTPException(status_code=400, detail="Results not ready")
+    
+    return session.results_json
