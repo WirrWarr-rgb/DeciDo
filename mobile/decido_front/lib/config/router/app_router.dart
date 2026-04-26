@@ -8,9 +8,11 @@ import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/home/presentation/screens/home_screen.dart';
 import '../../modules/auth/providers/auth_state_provider.dart';
 import '../../modules/profile/presentation/screens/profile_screen.dart';
-import '../../modules/social/presentation/screens/groups_screen.dart';
-import '../../modules/social/presentation/screens/group_detail_screen.dart';
-import '../../modules/social/presentation/screens/create_group_screen.dart';
+import '../../modules/session/presentation/screens/create_session_screen.dart';
+import '../../modules/session/presentation/screens/ranking_screen.dart';
+import '../../modules/session/presentation/screens/results_screen.dart';
+import '../../modules/session/presentation/screens/select_friends_screen.dart';
+import '../../modules/session/presentation/screens/session_screen.dart';
 import '../../modules/social/presentation/screens/search_people_screen.dart';
 import '../../modules/list/presentation/screens/my_lists_screen.dart';
 import '../../modules/list/presentation/screens/edit_list_screen.dart';
@@ -79,26 +81,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ProfileScreen(),
       ),
       
-      // Группы
-      GoRoute(
-        path: RouteNames.groups,
-        name: 'groups',
-        builder: (context, state) => const GroupsScreen(),
-      ),
-      GoRoute(
-        path: RouteNames.createGroup,
-        name: 'createGroup',
-        builder: (context, state) => const CreateGroupScreen(),
-      ),
-      GoRoute(
-        path: RouteNames.groupDetail,
-        name: 'groupDetail',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return GroupDetailScreen(groupId: id);
-        },
-      ),
-      
       // Списки
       GoRoute(
         path: RouteNames.myLists,
@@ -137,6 +119,43 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RouteNames.searchPeople,
         name: 'searchPeople',
         builder: (context, state) => const SearchPeopleScreen(),
+      ),
+
+
+      // Лобби
+      GoRoute(
+        path: RouteNames.createSession,
+        name: 'createSession',
+        builder: (context, state) => const CreateSessionScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.selectFriends,
+        name: 'selectFriends',
+        builder: (context, state) => const SelectFriendsScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.session,
+        name: 'session',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return SessionScreen(sessionId: int.parse(id));
+        },
+      ),
+      GoRoute(
+        path: RouteNames.ranking,
+        name: 'ranking',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return RankingScreen(sessionId: int.parse(id));
+        },
+      ),
+      GoRoute(
+        path: RouteNames.results,
+        name: 'results',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ResultsScreen(sessionId: int.parse(id));
+        },
       ),
     ],
   );

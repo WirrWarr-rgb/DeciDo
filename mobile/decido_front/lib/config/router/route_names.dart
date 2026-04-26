@@ -10,11 +10,6 @@ class RouteNames {
   // Профиль
   static const profile = '/profile';
   
-  // Группы
-  static const groups = '/groups';
-  static const createGroup = '/create-group';
-  static const groupDetail = '/group/:id';
-  
   // Списки
   static const myLists = '/my-lists';
   static const editList = '/edit-list/:id';  // Исправлено: добавляем :id параметр
@@ -27,7 +22,10 @@ class RouteNames {
   // Поиск
   static const searchPeople = '/search-people';
   
-  // Другие (пока закомментированы)
-  // static const notifications = '/notifications';
-  // static const session = '/session';
+  // Лобби (сессии)
+  static const createSession = '/create-session';
+  static const session = '/session/:id';
+  static const selectFriends = '/select-friends';
+  static const ranking = '/session/:id/ranking';
+  static const results = '/session/:id/results';
 }

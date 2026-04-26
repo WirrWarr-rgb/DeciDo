@@ -60,6 +60,16 @@ class HomeScreen extends ConsumerWidget {
               icon: Icons.people,
               width: 200,
             ),
+
+            // Кнопка перехода к созданию лобби
+            CustomButton(
+              text: 'Создать лобби',
+              onPressed: () {
+                context.push(RouteNames.createSession);
+              },
+              icon: Icons.groups,
+              width: 200,
+            ),
           ],
         ),
       ),

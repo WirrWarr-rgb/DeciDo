@@ -1,3 +1,4 @@
+import 'package:decido_front/config/app_config.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,7 +85,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     final router = ref.watch(appRouterProvider);
     
     return MaterialApp.router(
-      title: 'DeciDo',
+      title: 'DeciDo${AppConfig.useMocks ? ' [MOCK MODE]' : ''}',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
