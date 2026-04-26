@@ -15,26 +15,16 @@ class SessionListService:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def create_list_from_original(
-        self, 
-        session_id: int, 
-        original_list_id: int,
+    async def create_list_from_data(
+        self,
+        session_id: int,
+        name: str,
+        items_data: List[Dict[str, Any]],
         set_active: bool = True
     ) -> SessionList:
-        """Создать список в лобби из оригинального списка пользователя"""
+        """Создать список в лобби из переданных данных (не из БД)"""
         
-        # Получаем оригинальный список
-        result = await self.db.execute(
-            select(ItemList)
-            .options(selectinload(ItemList.items))
-            .where(ItemList.id == original_list_id)
-        )
-        original = result.scalar_one_or_none()
-        
-        if not original:
-            raise ValueError("Original list not found")
-        
-        # Если делаем активным, сбрасываем флаг у других списков
+        # Сбрасываем is_active у других списков этого лобби
         if set_active:
             await self.db.execute(
                 update(SessionList)
@@ -42,24 +32,24 @@ class SessionListService:
                 .values(is_active=False)
             )
         
-        # Создаём новый список
+        # Создаём список
         session_list = SessionList(
             session_id=session_id,
-            original_list_id=original_list_id,
-            name=original.name,
+            original_list_id=None,  # <-- БЕЗ ссылки на оригинал!
+            name=name,
             is_active=set_active
         )
         self.db.add(session_list)
         await self.db.flush()
         
-        # Копируем пункты
-        for item in original.items:
+        # Создаём пункты из переданных данных
+        for item_data in items_data:
             session_item = SessionListItem(
                 session_list_id=session_list.id,
-                name=item.name,
-                description=item.description,
-                image_url=item.image_url,
-                order_index=item.order_index
+                name=item_data["name"],
+                description=item_data.get("description"),
+                image_url=item_data.get("image_url"),
+                order_index=item_data.get("order_index", 0)
             )
             self.db.add(session_item)
         

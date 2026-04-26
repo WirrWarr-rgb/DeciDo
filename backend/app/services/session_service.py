@@ -29,7 +29,8 @@ class SessionService:
         self,
         owner_id: int,
         friend_ids: List[int],
-        list_id: int,
+        list_name: str,             # <-- название списка
+        list_items: List[Dict],     # <-- пункты списка
         mode: SessionMode = SessionMode.RANKING,
         voting_duration: int = 120
     ) -> Session:
@@ -44,11 +45,13 @@ class SessionService:
         self.db.add(session)
         await self.db.flush()
         
-        session_list = await self.list_service.create_list_from_original(
-            session.id, list_id, set_active=True
+        # Создаём список из переданных данных (не из БД!)
+        session_list = await self.list_service.create_list_from_data(
+            session.id, list_name, list_items, set_active=True
         )
         session.current_list_id = session_list.id
         
+        # Добавляем владельца
         owner_participant = SessionParticipant(
             session_id=session.id,
             user_id=owner_id,
@@ -58,6 +61,7 @@ class SessionService:
         )
         self.db.add(owner_participant)
         
+        # Добавляем приглашённых друзей
         for friend_id in friend_ids:
             participant = SessionParticipant(
                 session_id=session.id,

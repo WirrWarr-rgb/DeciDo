@@ -29,10 +29,23 @@ class ParticipantStatusEnum(str, Enum):
 
 
 # ============= Request Schemas =============
+class LobbyListItem(BaseModel):
+    """Пункт списка при создании лобби"""
+    name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    order_index: int = 0
+
+class LobbyListData(BaseModel):
+    """Данные списка при создании лобби"""
+    name: str = Field(..., min_length=1, max_length=100)
+    items: List[LobbyListItem] = Field(..., min_length=1, max_length=100)
+
+
 class CreateLobbyRequest(BaseModel):
     """Запрос на создание лобби"""
     friend_ids: List[int] = Field(..., min_length=1, max_length=20)
-    list_id: int
+    list_data: LobbyListData              # <-- теперь весь список
     mode: SessionModeEnum = SessionModeEnum.RANKING
     voting_duration: int = Field(default=120, ge=30, le=600)
 

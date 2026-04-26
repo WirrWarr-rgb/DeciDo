@@ -98,7 +98,6 @@ class SessionList(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
-    original_list_id = Column(Integer, ForeignKey("lists.id", ondelete="SET NULL"), nullable=True)
     name = Column(String(100), nullable=False)
     
     is_active = Column(Boolean, default=False)
@@ -112,7 +111,6 @@ class SessionList(Base):
         back_populates="session_lists",
         foreign_keys=[session_id]
     )
-    original_list = relationship("ItemList", foreign_keys=[original_list_id])
     items = relationship(
         "SessionListItem", 
         back_populates="session_list", 
