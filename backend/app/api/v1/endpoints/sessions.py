@@ -35,20 +35,32 @@ async def create_lobby(
     service = SessionService(db)
     
     try:
+        # Преобразуем items в список словарей
+        items_data = [
+            {
+                "name": item.name,
+                "description": item.description,
+                "image_url": item.image_url,
+                "order_index": item.order_index
+            }
+            for item in request.list_data.items
+        ]
+        
         session = await service.create_lobby(
             owner_id=current_user.id,
             friend_ids=request.friend_ids,
-            list_id=request.list_id,
+            list_name=request.list_data.name,    # <-- название
+            list_items=items_data,               # <-- пункты
             mode=request.mode,
             voting_duration=request.voting_duration
         )
         
-        # Отправляем приглашения через WebSocket/FCM
+        # Отправляем приглашения
         for friend_id in request.friend_ids:
             await manager.send_to_user(
                 friend_id,
                 {
-                    "type": "lobby_invitation",
+                    "type": "navigate_to_lobby",
                     "payload": {
                         "lobby_id": session.id,
                         "owner_name": current_user.username
