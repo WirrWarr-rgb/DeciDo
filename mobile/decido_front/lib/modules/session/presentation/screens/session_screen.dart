@@ -121,9 +121,19 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   void _toggleReady() {
     if (_session == null) return;
-    print('Toggling ready');
-    _webSocket.markReady();
+    
+    final currentParticipant = _session!.participants.firstWhere(
+      (p) => p.userId == _session!.ownerId,
+      orElse: () => _session!.participants.first,
+    );
+    
+    if (currentParticipant.isReady) {
+      _webSocket.sendMessage(WSMessageType.unready);
+    } else {
+      _webSocket.markReady();
+    }
   }
+
 
   void _startLobby() {
     if (_session == null) return;

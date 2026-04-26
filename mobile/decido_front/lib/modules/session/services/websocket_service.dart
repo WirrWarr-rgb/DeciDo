@@ -9,6 +9,7 @@ import '../models/session_models.dart';
 import '../../../config/app_config.dart';
 
 class WebSocketService {
+
   static WebSocketService? _instance;
   static WebSocketService get instance {
     _instance ??= WebSocketService._();
@@ -95,6 +96,15 @@ class WebSocketService {
           _notifyListeners(WSMessage(
             type: WSMessageType.participantReady,
             payload: {'user_id': 1, 'username': 'Я (Хост)'},
+          ));
+        });
+        break;
+      
+      case WSMessageType.unready:
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _notifyListeners(WSMessage(
+            type: WSMessageType.participantReady,
+            payload: {'user_id': 1, 'username': 'Я (Хост)', 'is_ready': false},
           ));
         });
         break;

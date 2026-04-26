@@ -32,10 +32,10 @@ class _SelectListBottomSheetState extends ConsumerState<SelectListBottomSheet> {
   }
 
   void _selectList(ListModel list) {
-    // Преобразуем String ID в int (для бэкенда)
-    // Если ID не число, используем хеш или -1
-    final int listId = int.tryParse(list.id) ?? list.id.hashCode;
-
+    // В реальном режиме используем настоящий ID из базы
+    // Для списков из бэкенда ID уже будет int, подходящий для API
+    final int listId = int.parse(list.id);
+    
     ref.read(selectedListIdProvider.notifier).state = listId;
     ref.read(selectedListNameProvider.notifier).state = list.name;
     Navigator.pop(context);
@@ -100,7 +100,9 @@ class _SelectListBottomSheetState extends ConsumerState<SelectListBottomSheet> {
                 itemCount: _lists.length,
                 itemBuilder: (context, index) {
                   final list = _lists[index];
-                  final isSelected = ref.read(selectedListIdProvider) == list.id;
+                  final selectedListId = ref.read(selectedListIdProvider);
+                  final isSelected = selectedListId != null && 
+                      selectedListId.toString() == list.id;
                   
                   return ListTile(
                     leading: Icon(

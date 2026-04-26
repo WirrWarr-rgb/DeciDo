@@ -581,4 +581,33 @@ class MockSessionRepository implements ISessionRepository {
       joinedAt: map['joined_at'] != null ? DateTime.parse(map['joined_at']) : null,
     );
   }
+  
+  @override
+  Future<void> unmarkReady(int sessionId) async {
+    await Future.delayed(const Duration(milliseconds: AppConfig.mockDelay ~/ 2));
+    
+    final sessionData = AppConfig.getSession(sessionId);
+    if (sessionData == null) throw Exception('Лобби не найдено');
+    
+    final participants = List<Map<String, dynamic>>.from(sessionData['participants']);
+    final participantIndex = participants.indexWhere((p) => p['user_id'] == currentUserId);
+    
+    if (participantIndex != -1) {
+      participants[participantIndex]['is_ready'] = false;
+      sessionData['participants'] = participants;
+      AppConfig.updateSession(sessionId, sessionData);
+    }
+  }
+
+  @override
+  Future<void> lockItem(int sessionId, int itemId) async {
+    await Future.delayed(const Duration(milliseconds: AppConfig.mockDelay ~/ 2));
+    // В мок-режиме просто имитируем
+  }
+
+  @override
+  Future<void> unlockItem(int sessionId, int itemId) async {
+    await Future.delayed(const Duration(milliseconds: AppConfig.mockDelay ~/ 2));
+    // В мок-режиме просто имитируем
+  }
 }

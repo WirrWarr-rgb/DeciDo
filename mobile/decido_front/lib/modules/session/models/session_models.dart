@@ -35,20 +35,26 @@ enum SessionMode {
   }
 }
 
+// В ParticipantStatus:
 enum ParticipantStatus {
   invited('invited'),
   accepted('accepted'),
   declined('declined'),
-  left('left');
+  left('left'),
+  kicked('kicked');  // Добавить
 
   final String value;
   const ParticipantStatus(this.value);
-
+  
   static ParticipantStatus fromString(String value) {
-    return ParticipantStatus.values.firstWhere(
-      (e) => e.value == value,
-      orElse: () => ParticipantStatus.invited,
-    );
+    switch (value) {
+      case 'invited': return ParticipantStatus.invited;
+      case 'accepted': return ParticipantStatus.accepted;
+      case 'declined': return ParticipantStatus.declined;
+      case 'left': return ParticipantStatus.left;
+      case 'kicked': return ParticipantStatus.kicked;
+      default: return ParticipantStatus.invited;
+    }
   }
 }
 
@@ -392,6 +398,13 @@ class WSMessageType {
   static const String error = 'error';
   static const String pong = 'pong';
   
+
+  static const String unready = 'unready';
+  static const String participantKicked = 'participant_kicked';
+  static const String itemLocked = 'item_locked';
+  static const String itemUnlocked = 'item_unlocked';
+
+
   // От клиента
   static const String acceptInvite = 'accept_invite';
   static const String declineInvite = 'decline_invite';

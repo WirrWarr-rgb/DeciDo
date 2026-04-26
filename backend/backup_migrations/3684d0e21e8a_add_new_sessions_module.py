@@ -7,13 +7,11 @@ Create Date: 2026-04-26
 from alembic import op
 import sqlalchemy as sa
 
-
 # revision identifiers, used by Alembic.
 revision = '3684d0e21e8a'
 down_revision = '0a4ad82718d9'
 branch_labels = None
 depends_on = None
-
 
 def upgrade():
     # 1. Сначала создаём sessions (она не ссылается на session_lists через FK при создании)
@@ -72,7 +70,10 @@ def upgrade():
         sa.Column('edited_at', sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(['created_by'], ['users.id'], ondelete='SET NULL'),
         sa.ForeignKeyConstraint(['edited_by'], ['users.id'], ondelete='SET NULL'),
-        sa.ForeignKeyConstraint(['session_list_id'], ['session_lists.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['session_list_id'], ['session_lists.id'],
+
+
+ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_session_list_items_id', 'session_list_items', ['id'])
@@ -116,11 +117,10 @@ def upgrade():
     op.create_index('ix_session_results_id', 'session_results', ['id'])
 
     # 7. Удаляем таблицы групп
-    op.drop_constraint('lists_group_id_fkey', 'lists', type_='foreignkey')
+    #op.drop_constraint('lists_group_id_fkey', 'lists', type_='foreignkey')
     op.drop_column('lists', 'group_id')
     op.drop_table('group_members')
     op.drop_table('groups')
-
 
 def downgrade():
     # Восстанавливаем таблицы групп
@@ -145,7 +145,11 @@ def downgrade():
         sa.PrimaryKeyConstraint('id')
     )
     op.add_column('lists', sa.Column('group_id', sa.Integer(), nullable=True))
-    op.create_foreign_key('lists_group_id_fkey', 'lists', 'groups', ['group_id'], ['id'], ondelete='CASCADE')
+    #op.create_foreign_key('lists_group_id_fkey', 'lists', 'groups',
+    op.create_foreign_key( 'lists', 'groups',
+
+
+['group_id'], ['id'], ondelete='CASCADE')
 
     # Удаляем таблицы сессий
     op.drop_table('session_results')

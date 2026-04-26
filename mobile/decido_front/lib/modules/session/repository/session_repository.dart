@@ -177,16 +177,6 @@ class SessionRepository implements ISessionRepository {
     }
   }
   
-  /// Выгнать участника (только владелец)
-  @override
-  Future<void> kickParticipant(int sessionId, int userId) async {
-    try {
-      await DioClient.delete('/sessions/$sessionId/participants/$userId');
-    } catch (e) {
-      throw Exception('Ошибка исключения участника: $e');
-    }
-  }
-  
   /// Пригласить друзей (только владелец)
   @override
   Future<void> inviteFriends(int sessionId, List<int> friendIds) async {
@@ -217,6 +207,45 @@ class SessionRepository implements ISessionRepository {
       await DioClient.post('/sessions/$sessionId/list/unlock');
     } catch (e) {
       throw Exception('Ошибка разблокировки списка: $e');
+    }
+  }
+
+
+
+  // Добавить в класс SessionRepository:
+  @override
+  Future<void> unmarkReady(int sessionId) async {
+    try {
+      await DioClient.post('/sessions/$sessionId/unready');
+    } catch (e) {
+      throw Exception('Ошибка отмены готовности: $e');
+    }
+  }
+
+  @override
+  Future<void> kickParticipant(int sessionId, int userId) async {
+    try {
+      await DioClient.post('/sessions/$sessionId/kick/$userId');
+    } catch (e) {
+      throw Exception('Ошибка исключения участника: $e');
+    }
+  }
+
+  @override
+  Future<void> lockItem(int sessionId, int itemId) async {
+    try {
+      await DioClient.post('/sessions/$sessionId/list/items/$itemId/lock');
+    } catch (e) {
+      throw Exception('Ошибка блокировки элемента: $e');
+    }
+  }
+
+  @override
+  Future<void> unlockItem(int sessionId, int itemId) async {
+    try {
+      await DioClient.post('/sessions/$sessionId/list/items/$itemId/unlock');
+    } catch (e) {
+      throw Exception('Ошибка разблокировки элемента: $e');
     }
   }
 }
