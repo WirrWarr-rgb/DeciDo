@@ -134,6 +134,18 @@ class ConnectionManager:
                 await self.local_connections[session_id][user_id].send_json(message)
             except:
                 self.disconnect(session_id, user_id)
+
+    async def send_to_user(self, user_id: int, message: Dict[str, Any]):
+        """
+        Отправить сообщение конкретному пользователю 
+        во всех сессиях, где он участвует.
+        """
+        for session_id, connections in self.local_connections.items():
+            if user_id in connections:
+                try:
+                    await connections[user_id].send_json(message)
+                except Exception:
+                    pass  # Игнорируем ошибки отправки
     
     async def close(self):
         """Закрыть все соединения и Redis клиент."""

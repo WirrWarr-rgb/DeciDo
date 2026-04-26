@@ -40,36 +40,36 @@ AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 
 
 async def _check_timers_async():
-    """Асинхронная проверка таймеров сессий."""
     async with AsyncSessionLocal() as db:
         session_service = SessionService(db)
-        updated_sessions = await session_service.check_timers_and_transition()
+        updated_sessions = await session_service.check_countdowns_and_transition()
         
         for session_id in updated_sessions:
             try:
-                session = await session_service._get_session(session_id)
+                session = await session_service._get_session(session_id, load_participants=True)
                 
-                await manager.broadcast_to_session(
-                    session_id,
-                    {
-                        "type": "timer_expired",
-                        "payload": {
-                            "session_id": session_id,
-                            "new_status": session.status.value
-                        }
-                    }
-                )
-                
-                if session.status == SessionStatus.RESULTS and session.results_json:
+                if session.status == SessionStatus.VOTING:
                     await manager.broadcast_to_session(
                         session_id,
                         {
-                            "type": "results_ready",
+                            "type": "navigate_to_ranking",
+                            "payload": {
+                                "session_id": session_id,
+                                "voting_ends_at": session.voting_ends_at.isoformat() if session.voting_ends_at else None
+                            }
+                        }
+                    )
+                
+                elif session.status == SessionStatus.RESULTS and session.results_json:
+                    await manager.broadcast_to_session(
+                        session_id,
+                        {
+                            "type": "navigate_to_results",
                             "payload": session.results_json
                         }
                     )
             except Exception as e:
-                print(f"Error broadcasting timer update for session {session_id}: {e}")
+                print(f"Error broadcasting for session {session_id}: {e}")
     
     return updated_sessions
 

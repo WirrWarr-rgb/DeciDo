@@ -25,6 +25,7 @@ class ParticipantStatusEnum(str, Enum):
     ACCEPTED = "accepted"
     DECLINED = "declined"
     LEFT = "left"
+    KICKED = "kicked"
 
 
 # ============= Request Schemas =============
@@ -221,6 +222,18 @@ class WSMessageType(str, Enum):
     STATE_CHANGED = "state_changed"
     ERROR = "error"
     PONG = "pong"
+    NAVIGATE_TO_LOBBY = "navigate_to_lobby"
+    NAVIGATE_TO_HOME = "navigate_to_home"
+    NAVIGATE_TO_RANKING = "navigate_to_ranking"
+    NAVIGATE_TO_RESULTS = "navigate_to_results"
+    TIMER_UPDATED = "timer_updated"
+    PARTICIPANT_KICKED = "participant_kicked"
+    ITEM_LOCKED = "item_locked"
+    ITEM_UNLOCKED = "item_unlocked"
+    UNREADY = "unready"
+    KICK_PARTICIPANT = "kick_participant"
+    LOCK_ITEM = "lock_item"
+    UNLOCK_ITEM = "unlock_item"
     
     # От клиента
     ACCEPT_INVITE = "accept_invite"
