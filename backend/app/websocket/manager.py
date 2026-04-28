@@ -68,7 +68,8 @@ class ConnectionManager:
     
     async def connect(self, session_id: int, user_id: int, websocket: WebSocket):
         """Подключить нового клиента."""
-        await websocket.accept()
+        # НЕ вызываем websocket.accept() здесь, так как он уже вызван
+        # await websocket.accept()  # ← закомментировать или удалить
         
         if session_id not in self.local_connections:
             self.local_connections[session_id] = {}

@@ -607,6 +607,30 @@ class SessionService:
         
         return item
     
+    async def lock_list(self, session_id: int, user_id: int) -> Session:
+        """Заблокировать список (только владелец)"""
+        session = await self._get_session(session_id)
+        
+        if session.owner_id != user_id:
+            raise ValueError("Only owner can lock list")
+        
+        session.list_locked = True
+        await self.db.commit()
+        await self.db.refresh(session)
+        return session
+
+    async def unlock_list(self, session_id: int, user_id: int) -> Session:
+        """Разблокировать список (только владелец)"""
+        session = await self._get_session(session_id)
+        
+        if session.owner_id != user_id:
+            raise ValueError("Only owner can unlock list")
+        
+        session.list_locked = False
+        await self.db.commit()
+        await self.db.refresh(session)
+        return session
+
     # ============= Вспомогательные методы =============
     
     async def _check_all_accepted(self, session_id: int) -> None:

@@ -145,6 +145,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   void _toggleReady() {
+    if (_isLoading) return;
     if (_session == null) return;
     
     final currentParticipant = _session!.participants.firstWhere(
@@ -161,6 +162,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
 
   void _startLobby() {
+    if (_isLoading) return;
     if (_session == null) return;
     print('Starting lobby');
     _webSocket.startLobby();
@@ -177,6 +179,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   void _inviteFriends() async {
+    if (_isLoading) return;
     final result = await context.push<List<int>>('/select-friends?mode=invite');
     if (result != null && result.isNotEmpty && mounted) {
       await _repository.inviteFriends(widget.sessionId, result);
@@ -185,6 +188,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   void _kickParticipant(int userId, String username) {
+    if (_isLoading) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -209,16 +213,22 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     );
   }
 
-  void _toggleListLock() {
+  void _toggleListLock() async {
+    if (_isLoading) return;
     if (_session!.listLocked) {
-      _repository.unlockList(widget.sessionId);
+      await _repository.unlockList(widget.sessionId);
     } else {
-      _repository.lockList(widget.sessionId);
+      await _repository.lockList(widget.sessionId);
     }
     _loadSession();
   }
 
   void _addItem() {
+    if (_isLoading) return;
+    if (_session!.listLocked && !_session!.isOwner) {
+      _showError('Список заблокирован владельцем');
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -235,6 +245,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   void _editItem(SessionListItemModel item) {
+    if (_isLoading) return;
+    if (_session!.listLocked && !_session!.isOwner) {
+      _showError('Список заблокирован владельцем');
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -243,20 +258,53 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         item: item,
         isNew: false,
         onSave: (name, description, imageUrl) {
-          _repository.updateItem(widget.sessionId, item.id, name: name, description: description, imageUrl: imageUrl);
+          _webSocket.updateItem(item.id, name: name, description: description, imageUrl: imageUrl);
           Navigator.pop(context);
-          _loadSession();
+          _loadSession(); // ← добавить обновление
         },
         onDelete: () {
-          _repository.deleteItem(widget.sessionId, item.id);
+          _webSocket.deleteItem(item.id);
           Navigator.pop(context);
-          _loadSession();
+          _loadSession(); // ← добавить обновление
         },
       ),
     );
   }
 
+
+  void _deleteItem(SessionListItemModel item) {
+    if (_isLoading) return;
+    if (_session!.listLocked && !_session!.isOwner) {
+      _showError('Список заблокирован владельцем');
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить элемент'),
+        content: Text('Вы уверены, что хотите удалить "${item.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              _webSocket.deleteItem(item.id);
+              Navigator.pop(context);
+              _loadSession(); // ← важно: обновить список
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _leaveLobby() {
+    if (_isLoading) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -463,7 +511,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             const SizedBox(height: 16),
             
             // Список элементов (с возможностью редактирования)
-            if (items.isNotEmpty || session.canEditList)
+            if (items.isNotEmpty || (session.canEditList || session.isOwner))
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.all(12),
@@ -482,7 +530,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                             'Список для голосования:',
                             style: AppTextStyles.headlineSmall,
                           ),
-                          if (session.canEditList && !session.listLocked)
+                          if ((session.canEditList  && !session.listLocked) || session.isOwner)
                             IconButton(
                               icon: const Icon(Icons.add, size: 20),
                               onPressed: _addItem,
@@ -546,7 +594,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                                             overflow: TextOverflow.ellipsis,
                                           )
                                         : null,
-                                    trailing: (session.canEditList && !session.listLocked)
+                                    trailing: ((session.canEditList  && !session.listLocked) || session.isOwner)
                                         ? Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
@@ -557,7 +605,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                                               IconButton(
                                                 icon: const Icon(Icons.delete, size: 18, color: Colors.red),
                                                 onPressed: () {
-                                                  _repository.deleteItem(widget.sessionId, item.id);
+                                                  _deleteItem(item);
                                                   _loadSession();
                                                 },
                                               ),
@@ -573,7 +621,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                 ),
               ),
             
-            if (items.isEmpty && !session.canEditList)
+            if (items.isEmpty)
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.all(12),
