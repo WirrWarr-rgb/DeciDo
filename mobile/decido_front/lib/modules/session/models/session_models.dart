@@ -320,13 +320,13 @@ class SessionModel extends Equatable {
 // ============= Request Models =============
 class CreateLobbyRequest {
   final List<int> friendIds;
-  final int listId;
+  final ListData listData;
   final SessionMode mode;
   final int votingDuration;
 
   CreateLobbyRequest({
     required this.friendIds,
-    required this.listId,
+    required this.listData,
     this.mode = SessionMode.ranking,
     this.votingDuration = 120,
   });
@@ -334,9 +334,69 @@ class CreateLobbyRequest {
   Map<String, dynamic> toJson() {
     return {
       'friend_ids': friendIds,
-      'list_id': listId,
+      'list_data': listData.toJson(),
       'mode': mode.value,
       'voting_duration': votingDuration,
+    };
+  }
+}
+
+class ListData {
+  final String name;
+  final List<ListDataItem> items;
+
+  ListData({
+    required this.name,
+    required this.items,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'items': items.map((i) => i.toJson()).toList(),
+    };
+  }
+}
+
+class ListDataItem {
+  final String name;
+  final String? description;
+  final String? imageUrl;
+  final int orderIndex;
+
+  ListDataItem({
+    required this.name,
+    this.description,
+    this.imageUrl,
+    this.orderIndex = 0,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'description': description,
+      'image_url': imageUrl,
+      'order_index': orderIndex,
+    };
+  }
+}
+
+class CreateLobbyItem {
+  final String name;
+  final String? description;
+  final String? imageUrl;
+
+  CreateLobbyItem({
+    required this.name,
+    this.description,
+    this.imageUrl,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'description': description,
+      'image_url': imageUrl,
     };
   }
 }

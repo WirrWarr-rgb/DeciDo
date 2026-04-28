@@ -138,6 +138,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'session',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
+          print('Navigating to session screen with id: $id');  // ← Добавь для отладки
           return SessionScreen(sessionId: int.parse(id));
         },
       ),

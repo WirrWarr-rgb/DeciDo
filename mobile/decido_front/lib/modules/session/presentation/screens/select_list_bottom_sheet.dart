@@ -4,10 +4,15 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../list/repository/list_repository.dart';
 import '../../../list/models/list_model.dart';
-import '../../providers/session_providers.dart';
+import '../../models/session_models.dart';
 
 class SelectListBottomSheet extends ConsumerStatefulWidget {
-  const SelectListBottomSheet({super.key});
+  final Function(SessionListModel, String) onSelectList;  // Добавляем оригинальный ID
+
+  const SelectListBottomSheet({
+    super.key,
+    required this.onSelectList,
+  });
 
   @override
   ConsumerState<SelectListBottomSheet> createState() => _SelectListBottomSheetState();
@@ -32,13 +37,26 @@ class _SelectListBottomSheetState extends ConsumerState<SelectListBottomSheet> {
   }
 
   void _selectList(ListModel list) {
-    // В реальном режиме используем настоящий ID из базы
-    // Для списков из бэкенда ID уже будет int, подходящий для API
-    final int listId = int.parse(list.id);
+    // Получаем элементы списка
+    final items = _listRepository.getItemsByListId(list.id);
     
-    ref.read(selectedListIdProvider.notifier).state = listId;
-    ref.read(selectedListNameProvider.notifier).state = list.name;
-    Navigator.pop(context);
+    // Создаем SessionListModel для отображения
+    final sessionList = SessionListModel(
+      id: list.id.hashCode,
+      name: list.name,
+      isActive: true,
+      items: items.map((item) => SessionListItemModel(
+        id: item.id.hashCode,
+        name: item.name,
+        description: item.description,
+        imageUrl: item.imageUrl,
+        orderIndex: item.orderIndex,
+      )).toList(),
+      createdAt: list.createdAt,
+    );
+    
+    // Передаём и SessionListModel, и оригинальный ID
+    widget.onSelectList(sessionList, list.id);
   }
 
   @override
@@ -100,29 +118,22 @@ class _SelectListBottomSheetState extends ConsumerState<SelectListBottomSheet> {
                 itemCount: _lists.length,
                 itemBuilder: (context, index) {
                   final list = _lists[index];
-                  final selectedListId = ref.read(selectedListIdProvider);
-                  final isSelected = selectedListId != null && 
-                      selectedListId.toString() == list.id;
+                  final itemsCount = _listRepository.getItemsByListId(list.id).length;
                   
                   return ListTile(
                     leading: Icon(
                       Icons.list,
-                      color: isSelected ? AppColors.primary : Colors.grey,
+                      color: AppColors.primary,
                     ),
                     title: Text(
                       list.name,
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected ? AppColors.primary : null,
-                      ),
+                      style: AppTextStyles.bodyLarge,
                     ),
                     subtitle: Text(
-                      '${_listRepository.getItemsByListId(list.id).length} элементов',
+                      '$itemsCount элементов',
                       style: AppTextStyles.bodySmall,
                     ),
-                    trailing: isSelected
-                        ? const Icon(Icons.check_circle, color: Colors.green)
-                        : null,
+                    trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                     onTap: () => _selectList(list),
                   );
                 },

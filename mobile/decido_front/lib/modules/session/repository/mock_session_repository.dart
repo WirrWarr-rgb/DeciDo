@@ -25,49 +25,28 @@ class MockSessionRepository implements ISessionRepository {
     final sessionId = AppConfig.generateSessionId();
     final now = DateTime.now();
     
-    // Создаем список из мок-элементов
-    final items = [
-      SessionListItemModel(
-        id: 101,
-        name: 'Пицца',
-        description: 'Итальянская пицца с различными топпингами',
-        orderIndex: 0,
-      ),
-      SessionListItemModel(
-        id: 102,
-        name: 'Суши',
-        description: 'Японские роллы с лососем и авокадо',
-        orderIndex: 1,
-      ),
-      SessionListItemModel(
-        id: 103,
-        name: 'Бургер',
-        description: 'Сочный бургер с говяжьей котлетой',
-        orderIndex: 2,
-      ),
-      SessionListItemModel(
-        id: 104,
-        name: 'Паста',
-        description: 'Паста Карбонара с беконом и пармезаном',
-        orderIndex: 3,
-      ),
-      SessionListItemModel(
-        id: 105,
-        name: 'Салат',
-        description: 'Свежий овощной салат с оливковым маслом',
-        orderIndex: 4,
-      ),
-    ];
+    // Создаем список из элементов запроса
+    final items = <SessionListItemModel>[];
+    for (var i = 0; i < request.listData.items.length; i++) {
+      final item = request.listData.items[i];
+      items.add(SessionListItemModel(
+        id: AppConfig.generateItemId(),
+        name: item.name,
+        description: item.description,
+        imageUrl: item.imageUrl,
+        orderIndex: i,
+      ));
+    }
     
     final sessionList = SessionListModel(
       id: 1,
-      name: 'Что заказываем?',
+      name: request.listData.name,
       isActive: true,
       items: items,
       createdAt: now,
     );
     
-    // Создаем участников
+    // Создаем участников (остаётся без изменений)
     final participants = <ParticipantModel>[
       ParticipantModel(
         userId: currentUserId,
@@ -81,7 +60,6 @@ class MockSessionRepository implements ISessionRepository {
       ),
     ];
     
-    // Добавляем приглашенных друзей с реальными именами
     for (var friendId in request.friendIds) {
       final friend = _mockFriends.firstWhere(
         (f) => f['id'] == friendId,
@@ -120,12 +98,12 @@ class MockSessionRepository implements ISessionRepository {
       canLockList: true,
     );
     
-    // Сохраняем в мок-хранилище
     AppConfig.addSession(_sessionToMap(session));
     
     return session;
   }
-  
+
+
   // Получить лобби
   @override
   Future<SessionModel> getLobby(int sessionId) async {

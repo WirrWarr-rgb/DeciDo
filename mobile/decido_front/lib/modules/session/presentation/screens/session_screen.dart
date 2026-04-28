@@ -107,6 +107,31 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       if (!mounted) return;
       setState(() {
         _session = session;
+        // Для хоста принудительно включаем редактирование, если статус WAITING или EDITING
+        if (session.isOwner && (session.status == SessionStatus.waiting || session.status == SessionStatus.editing)) {
+          // Создаём копию сессии с включенным редактированием
+          _session = SessionModel(
+            id: session.id,
+            ownerId: session.ownerId,
+            ownerName: session.ownerName,
+            status: session.status,
+            mode: session.mode,
+            listLocked: session.listLocked,
+            currentList: session.currentList,
+            participants: session.participants,
+            votingDuration: session.votingDuration,
+            createdAt: session.createdAt,
+            votingEndsAt: session.votingEndsAt,
+            results: session.results,
+            isOwner: session.isOwner,
+            canEditList: true,  // ← принудительно true для хоста
+            canStart: session.canStart,
+            canInvite: session.canInvite,
+            canLockList: session.canLockList,
+          );
+        } else {
+          _session = session;
+        }
         _isLoading = false;
         _errorMessage = null;
       });
@@ -303,7 +328,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     
     // Участники (исключая хоста для готовности)
     final allParticipants = session.participants
-        .where((p) => p.status == ParticipantStatus.accepted)
+        .where((p) => p.status == ParticipantStatus.accepted || p.status == ParticipantStatus.invited)
         .toList();
     final regularParticipants = allParticipants.where((p) => !p.isOwner).toList();
     final readyCount = regularParticipants.where((p) => p.isReady).length;

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/custom_button.dart';
 import '../../../shared/widgets/loading_widget.dart';
+import '../../../list/repository/list_repository.dart';
 import '../../../social/repository/friends_repository.dart';
 import '../../../social/models/friend_model.dart';
 import '../../providers/session_providers.dart';
@@ -23,8 +24,13 @@ class CreateSessionScreen extends ConsumerStatefulWidget {
 
 class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
   late ISessionRepository _repository;
+  final ListRepository _listRepository = ListRepository();
   final FriendsRepository _friendsRepository = FriendsRepository();
+  
   Map<int, String> _friendNames = {};
+  SessionListModel? _selectedList;
+  String? _selectedListOriginalId;  // Сохраняем оригинальный ID
+  bool _isLoadingLists = true;
 
   @override
   void initState() {
@@ -34,8 +40,8 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
       ref.read(selectedFriendsProvider.notifier).state = [];
       ref.read(selectedListIdProvider.notifier).state = null;
       ref.read(selectedListNameProvider.notifier).state = null;
-      _loadFriendNames();
     });
+    _loadFriendNames();
   }
 
   Future<void> _loadFriendNames() async {
@@ -57,6 +63,15 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
     return _friendNames[id] ?? 'Друг #$id';
   }
 
+  void _selectList(SessionListModel list, String originalId) {
+    setState(() {
+      _selectedList = list;
+      _selectedListOriginalId = originalId;
+    });
+    ref.read(selectedListNameProvider.notifier).state = list.name;
+    Navigator.pop(context);
+  }
+
   void _showSelectListSheet() {
     showModalBottomSheet(
       context: context,
@@ -64,21 +79,28 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => const SelectListBottomSheet(),
+      builder: (context) => SelectListBottomSheet(onSelectList: _selectList),
     );
   }
 
   Future<void> _createLobby() async {
     final friendIds = ref.read(selectedFriendsProvider);
-    final listId = ref.read(selectedListIdProvider);
     
     if (friendIds.isEmpty) {
       _showError('Выберите хотя бы одного друга');
       return;
     }
     
-    if (listId == null) {
+    if (_selectedList == null || _selectedListOriginalId == null) {
       _showError('Выберите список для голосования');
+      return;
+    }
+    
+    // Получаем элементы выбранного списка
+    final items = _listRepository.getItemsByListId(_selectedListOriginalId!);
+    
+    if (items.isEmpty) {
+      _showError('В выбранном списке нет элементов');
       return;
     }
     
@@ -87,16 +109,27 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
     try {
       final request = CreateLobbyRequest(
         friendIds: friendIds,
-        listId: listId,
+        listData: ListData(
+          name: _selectedList!.name,
+          items: items.asMap().entries.map((entry) => ListDataItem(
+            name: entry.value.name,
+            description: entry.value.description,
+            imageUrl: entry.value.imageUrl,
+            orderIndex: entry.key,  // order_index от 0
+          )).toList(),
+        ),
         mode: SessionMode.ranking,
         votingDuration: 120,
       );
       
       final session = await _repository.createLobby(request);
+      print('Session created: ${session.id}');  // ← Добавь для отладки
       
       await WebSocketService.instance.connect(session.id);
+      print('WebSocket connected');  // ← Добавь для отладки
       
       if (mounted) {
+        print('Navigating to /session/${session.id}');  // ← Добавь для отладки
         context.pushReplacement('/session/${session.id}');
       }
     } catch (e) {
@@ -105,7 +138,9 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
       ref.read(sessionLoadingProvider.notifier).state = false;
     }
   }
-  
+
+
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red),
@@ -116,7 +151,6 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
   Widget build(BuildContext context) {
     final isLoading = ref.watch(sessionLoadingProvider);
     final friendIds = ref.watch(selectedFriendsProvider);
-    final listName = ref.watch(selectedListNameProvider);
     
     return Scaffold(
       appBar: AppBar(
@@ -152,7 +186,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                                 final result = await context.push<List<int>>('/select-friends');
                                 if (result != null && mounted) {
                                   ref.read(selectedFriendsProvider.notifier).state = result;
-                                  _loadFriendNames(); // Перезагружаем имена
+                                  _loadFriendNames();
                                 }
                               },
                               icon: const Icon(Icons.edit, size: 18),
@@ -211,15 +245,25 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        if (listName == null)
+                        if (_selectedList == null)
                           Text(
                             'Список не выбран',
                             style: AppTextStyles.bodyMedium.copyWith(color: Colors.grey),
                           )
                         else
-                          Text(
-                            listName,
-                            style: AppTextStyles.bodyMedium,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _selectedList!.name,
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_listRepository.getItemsByListId(_selectedListOriginalId!).length} элементов',
+                                style: AppTextStyles.bodySmall.copyWith(color: Colors.grey),
+                              ),
+                            ],
                           ),
                       ],
                     ),

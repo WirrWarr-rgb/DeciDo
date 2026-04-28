@@ -107,6 +107,8 @@ class ListRepository {
     }
   }
   
+
+  
   // Создать новый список
   ListModel createList(String name) {
     if (_listsBox.length >= maxLists) {

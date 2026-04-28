@@ -35,7 +35,6 @@ class SessionListService:
         # Создаём список
         session_list = SessionList(
             session_id=session_id,
-            original_list_id=None,  # <-- БЕЗ ссылки на оригинал!
             name=name,
             is_active=set_active
         )
