@@ -104,10 +104,10 @@ class ConnectionManager:
         Отправить сообщение всем клиентам в сессии.
         Публикует в Redis для синхронизации между инстансами.
         """
-        if self.redis_client:
-            # Публикуем в Redis для других инстансов
-            channel = f"session:{session_id}"
-            await self.redis_client.publish(channel, json.dumps(message))
+        #if self.redis_client:
+        #    # Публикуем в Redis для других инстансов
+        #    channel = f"session:{session_id}"
+        #    await self.redis_client.publish(channel, json.dumps(message))
         
         # Отправляем локальным клиентам
         if session_id in self.local_connections:
@@ -137,35 +137,30 @@ class ConnectionManager:
                 self.disconnect(session_id, user_id)
 
     async def send_to_user(self, user_id: int, message: Dict[str, Any]):
-        """
-        Отправить сообщение конкретному пользователю 
-        во всех сессиях, где он участвует.
-        """
+        """Отправить сообщение конкретному пользователю"""
+        print(f"🔍 Looking for user {user_id} in connections...")
+        print(f"   Global connections (session 0): {0 in self.local_connections}")
+        if 0 in self.local_connections:
+            print(f"   Users in global: {list(self.local_connections[0].keys())}")
+        
+        # Сначала проверяем глобальное подключение (session_id = 0)
+        if 0 in self.local_connections and user_id in self.local_connections[0]:
+            try:
+                await self.local_connections[0][user_id].send_json(message)
+                print(f"✅ Sent message to user {user_id} via global channel: {message['type']}")
+                return  # Отправили через глобальный канал
+            except Exception as e:
+                print(f"❌ Failed to send via global: {e}")
+        
+        # Потом ищем по сессиям
         for session_id, connections in self.local_connections.items():
             if user_id in connections:
                 try:
                     await connections[user_id].send_json(message)
-                except Exception:
-                    pass  # Игнорируем ошибки отправки
-    
-    async def close(self):
-        """Закрыть все соединения и Redis клиент."""
-        if self.pubsub:
-            await self.pubsub.unsubscribe()
-            await self.pubsub.close()
-        if self.redis_client:
-            await self.redis_client.close()
+                    print(f"✅ Sent message to user {user_id} in session {session_id}")
+                except Exception as e:
+                    print(f"❌ Failed to send: {e}")
 
 
 # Глобальный экземпляр менеджера
 manager = ConnectionManager(redis_url=getattr(settings, 'REDIS_URL', 'redis://localhost:6379'))
-
-async def send_to_user(self, user_id: int, message: Dict[str, Any]):
-    """Отправить сообщение конкретному пользователю (во всех его сессиях)"""
-    # Ищем все сессии, где есть этот пользователь
-    for session_id, connections in self.local_connections.items():
-        if user_id in connections:
-            try:
-                await connections[user_id].send_json(message)
-            except:
-                pass  # Игнорируем ошибки

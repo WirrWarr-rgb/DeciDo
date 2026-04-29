@@ -52,7 +52,7 @@ async def _check_timers_async():
                     await manager.broadcast_to_session(
                         session_id,
                         {
-                            "type": "navigate_to_ranking",
+                            "type": "voting_started",
                             "payload": {
                                 "session_id": session_id,
                                 "voting_ends_at": session.voting_ends_at.isoformat() if session.voting_ends_at else None
@@ -64,7 +64,7 @@ async def _check_timers_async():
                     await manager.broadcast_to_session(
                         session_id,
                         {
-                            "type": "navigate_to_results",
+                            "type": "results_ready",
                             "payload": session.results_json
                         }
                     )

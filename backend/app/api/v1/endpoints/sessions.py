@@ -35,7 +35,6 @@ async def create_lobby(
     service = SessionService(db)
     
     try:
-        # Преобразуем items в список словарей
         items_data = [
             {
                 "name": item.name,
@@ -49,20 +48,19 @@ async def create_lobby(
         session = await service.create_lobby(
             owner_id=current_user.id,
             friend_ids=request.friend_ids,
-            list_name=request.list_data.name,    # <-- название
-            list_items=items_data,               # <-- пункты
+            list_name=request.list_data.name,
+            list_items=items_data,
             mode=request.mode,
             voting_duration=request.voting_duration
         )
         
-        # Отправляем приглашения
         for friend_id in request.friend_ids:
             await manager.send_to_user(
                 friend_id,
                 {
                     "type": "navigate_to_lobby",
                     "payload": {
-                        "lobby_id": session.id,
+                        "session_id": session.id,
                         "owner_name": current_user.username
                     }
                 }
@@ -228,9 +226,9 @@ async def invite_friends(
             await manager.send_to_user(
                 p.user_id,
                 {
-                    "type": "lobby_invitation",
+                    "type": "navigate_to_lobby",
                     "payload": {
-                        "lobby_id": session_id,
+                        "session_id": session_id,
                         "owner_name": current_user.username
                     }
                 }
