@@ -10,30 +10,28 @@ import 'core/network/dio_client.dart';
 import 'modules/auth/providers/auth_controller_provider.dart';
 import 'modules/list/models/list_model.dart';
 import 'modules/list/models/list_item_model.dart';
+import 'modules/session/services/websocket_service.dart';
+
+// Глобальный ключ для навигации (для GoRouter)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Загружаем переменные окружения
   await dotenv.load();
   
-  // Инициализация Hive
   await Hive.initFlutter();
-  
-  // Регистрируем адаптеры (обязательно!)
   Hive.registerAdapter(ListModelAdapter());
   Hive.registerAdapter(ListItemModelAdapter());
   
-  // Открываем боксы с правильными типами
   await Hive.openBox<ListModel>('lists');
   await Hive.openBox<ListItemModel>('items');
-  await Hive.openBox('settings');  // settings может быть dynamic
+  await Hive.openBox('settings');
   
-  // Инициализируем Dio клиент
   DioClient.init();
   
   testBackendConnection();
-
+  
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -63,11 +61,12 @@ class _MyAppState extends ConsumerState<MyApp> {
   }
 
   Future<void> _restoreSession() async {
-    // Ждем проверки авторизации
     await ref.read(authControllerProvider).checkAuth();
     setState(() {
       _isLoading = false;
     });
+    // Подключаем глобальный WebSocket после восстановления сессии
+    await WebSocketService.instance.connectGlobal();
   }
 
   @override
@@ -90,7 +89,7 @@ class _MyAppState extends ConsumerState<MyApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      routerConfig: router,
+      routerConfig: router,  // ← GoRouter использует routerConfig
     );
   }
 }

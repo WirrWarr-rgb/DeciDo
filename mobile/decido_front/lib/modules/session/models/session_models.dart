@@ -482,6 +482,14 @@ class WSMessageType {
   static const String closeLobby = 'close_lobby';
   static const String backToLobby = 'back_to_lobby';
   static const String ping = 'ping';
+
+
+
+  // Глобальные навигационные сообщения
+  static const String NAVIGATE_TO_LOBBY = "navigate_to_lobby";
+  static const String NAVIGATE_TO_HOME = "navigate_to_home";
+  static const String NAVIGATE_TO_RANKING = "navigate_to_ranking";
+  static const String NAVIGATE_TO_RESULTS = "navigate_to_results";
 }
 
 class WSMessage {
