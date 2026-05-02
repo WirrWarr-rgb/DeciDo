@@ -67,7 +67,9 @@ class _MyAppState extends ConsumerState<MyApp> {
       _isLoading = false;
     });
     // Подключаем глобальный WebSocket после восстановления сессии
-    await WebSocketService.instance.connectGlobal();
+    if (!WebSocketService.instance.isGlobalConnected) {
+      await WebSocketService.instance.connectGlobal();
+    }
   }
 
   @override
@@ -76,7 +78,9 @@ class _MyAppState extends ConsumerState<MyApp> {
     ref.listen(authStateProvider, (previous, next) {
       if (next != null && previous == null) {
         // Пользователь только что вошёл — подключаем WebSocket
-        WebSocketService.instance.connectGlobal();
+        if (!WebSocketService.instance.isGlobalConnected) {
+          WebSocketService.instance.connectGlobal();
+        }
       }
     });
     if (_isLoading) {

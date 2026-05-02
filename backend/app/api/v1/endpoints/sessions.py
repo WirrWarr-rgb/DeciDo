@@ -16,7 +16,7 @@ from app.schemas.session import (
     ChangeListRequest, LockListRequest, UnlockListRequest,
     VoteRequest, VoteResultResponse, ResultsResponse,
     SessionListItemCreate, SessionListItemUpdate, SessionListItemResponse,
-    ItemsOrderUpdate, InviteToLobbyRequest
+    ItemsOrderUpdate, InviteToLobbyRequest, WSMessageType
 )
 from app.websocket.manager import manager
 
@@ -531,7 +531,7 @@ async def force_start(
         await manager.broadcast_to_session(
             session_id,
             {
-                "type": "voting_started",
+                "type": WSMessageType.VOTING_STARTED.value,
                 "payload": {
                     "voting_ends_at": session.voting_ends_at.isoformat() if session.voting_ends_at else None
                 }

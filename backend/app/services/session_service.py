@@ -283,7 +283,7 @@ class SessionService:
         if session.owner_id != user_id:
             raise ValueError("Only owner can force start")
         
-        if session.status not in [SessionStatus.EDITING, SessionStatus.READY]:
+        if session.status not in [SessionStatus.VOTING, SessionStatus.WAITING, SessionStatus.EDITING, SessionStatus.READY]:
             raise ValueError("Cannot start in current status")
         
         return await self._start_voting(session_id)

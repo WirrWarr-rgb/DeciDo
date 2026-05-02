@@ -228,7 +228,6 @@ class WSMessageType(str, Enum):
     LIST_ITEM_DELETED = "list_item_deleted"
     LIST_ORDER_CHANGED = "list_order_changed"
     LOBBY_STARTED = "lobby_started"
-    VOTING_STARTED = "voting_started"
     USER_VOTED = "user_voted"
     RESULTS_READY = "results_ready"
     LOBBY_CLOSED = "lobby_closed"
@@ -247,12 +246,13 @@ class WSMessageType(str, Enum):
     KICK_PARTICIPANT = "kick_participant"
     LOCK_ITEM = "lock_item"
     UNLOCK_ITEM = "unlock_item"
+    VOTING_STARTED = "voting_started"
     
     # От клиента
     ACCEPT_INVITE = "accept_invite"
     DECLINE_INVITE = "decline_invite"
     READY = "ready"
-    START_LOBBY = "start_lobby"
+    START_VOTING = "start_voting"
     CHANGE_LIST = "change_list"
     LOCK_LIST = "lock_list"
     UNLOCK_LIST = "unlock_list"

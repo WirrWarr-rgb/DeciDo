@@ -455,7 +455,8 @@ class WSMessageType {
   static const String listItemDeleted = 'list_item_deleted';
   static const String listOrderChanged = 'list_order_changed';
   static const String lobbyStarted = 'lobby_started';
-  static const String votingStarted = 'voting_started';
+  static const String startVoting = "start_voting"; 
+  static const String votingStarted = "voting_started";  // ← подтверждение начала голосования
   static const String userVoted = 'user_voted';
   static const String resultsReady = 'results_ready';
   static const String lobbyClosed = 'lobby_closed';
@@ -475,7 +476,6 @@ class WSMessageType {
   static const String acceptInvite = 'accept_invite';
   static const String declineInvite = 'decline_invite';
   static const String ready = 'ready';
-  static const String startLobby = 'start_lobby';
   static const String changeList = 'change_list';
   static const String lockList = 'lock_list';
   static const String unlockList = 'unlock_list';
@@ -490,6 +490,7 @@ class WSMessageType {
   static const String ping = 'ping';
 
 
+  static const String timerUpdated = 'timer_updated';
 
   // Глобальные навигационные сообщения
   static const String NAVIGATE_TO_LOBBY = "navigate_to_lobby";

@@ -1,5 +1,6 @@
 # app/tasks/session_tasks.py (обновлённая версия)
 import asyncio
+from backend.app.schemas.session import WSMessageType
 from celery import Celery
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -52,7 +53,7 @@ async def _check_timers_async():
                     await manager.broadcast_to_session(
                         session_id,
                         {
-                            "type": "voting_started",
+                            "type": WSMessageType.VOTING_STARTED.value,
                             "payload": {
                                 "session_id": session_id,
                                 "voting_ends_at": session.voting_ends_at.isoformat() if session.voting_ends_at else None

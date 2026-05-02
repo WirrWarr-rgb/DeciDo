@@ -6,7 +6,7 @@ import '../../../config/app_config.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../config/env/env_config.dart';
 import '../models/session_models.dart';
-import '../../../main.dart';  // Импортируем main.dart для доступа к navigatorKey
+import '../../../main.dart';
 
 class WebSocketService {
   static WebSocketService? _instance;
@@ -22,24 +22,55 @@ class WebSocketService {
   int? _currentSessionId;
   final List<Function(WSMessage)> _listeners = [];
   Timer? _mockTimer;
+  bool _isConnecting = false;
+  bool _isConnected = false;
   
-  bool get isConnected => _channel != null || AppConfig.useMocks;
+  
+  bool get isGlobalConnected => _globalChannel != null;
+  bool get isConnected => _isConnected && _channel != null;
   int? get currentSessionId => _currentSessionId;
 
-  // --- Существующие методы ---
-  
+
   Future<void> connect(int sessionId) async {
-    await disconnect();
+    print('🟢 [WS CONNECT] Starting connection to session $sessionId');
+    print('   Current state: _currentSessionId=$_currentSessionId, _isConnected=$_isConnected, _isConnecting=$_isConnecting');
+    
+    // Если уже подключены к этой сессии, ничего не делаем
+    if (_currentSessionId == sessionId && _isConnected && _channel != null) {
+      print('🟢 [WS CONNECT] Already connected to session $sessionId, skipping');
+      return;
+    }
+    
+    // Если уже идет подключение к этой сессии, не начинаем новое
+    if (_isConnecting && _currentSessionId == sessionId) {
+      print('🟢 [WS CONNECT] Already connecting to session $sessionId, skipping');
+      return;
+    }
+    
+    // Если подключены к другой сессии, отключаемся
+    if (_channel != null && _currentSessionId != sessionId) {
+      print('🟢 [WS CONNECT] Disconnecting from different session $_currentSessionId');
+      await disconnect();
+    }
+    
+    _isConnecting = true;
     _currentSessionId = sessionId;
+    _isConnected = false;
     
     if (AppConfig.useMocks) {
       print('Mock WebSocket connected to session $sessionId');
       _startMockHeartbeat();
+      _isConnected = true;
+      _isConnecting = false;
       return;
     }
     
     final token = await SecureStorage.getAccessToken();
-    if (token == null) throw Exception('No token');
+    if (token == null) {
+      print('❌ [WS CONNECT] No token');
+      _isConnecting = false;
+      throw Exception('No token');
+    }
     
     final wsUrl = '${EnvConfig.wsBaseUrl}/sessions/$sessionId/ws?token=Bearer $token';
     print('Connecting to WebSocket: $wsUrl');
@@ -48,25 +79,51 @@ class WebSocketService {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
       
       _channel!.stream.listen(
-        (data) => _handleMessage(data),
-        onError: (error) => print('WebSocket error: $error'),
-        onDone: () => print('WebSocket disconnected'),
+        (data) {
+          print('🟢 [WS] Data received, setting connected=true');
+          _isConnected = true;
+          _isConnecting = false;
+          _handleMessage(data);
+        },
+        onError: (error) {
+          print('🔴 [WS] Error: $error');
+          _isConnected = false;
+          _isConnecting = false;
+        },
+        onDone: () {
+          print('🔴 [WS] Done (disconnected)');
+          _isConnected = false;
+          _isConnecting = false;
+          _channel = null;
+        },
       );
       
-      print('WebSocket connected to session $sessionId');
+      print('🟢 [WS CONNECT] Connection initiated to session $sessionId');
     } catch (e) {
       print('WebSocket connection failed: $e');
+      _isConnected = false;
+      _isConnecting = false;
     }
   }
 
   Future<void> disconnect() async {
+    print('🔴 [WS DISCONNECT] Called, current session: $_currentSessionId');
+    _isConnected = false;
+    _isConnecting = false;
     if (_channel != null) {
       await _channel!.sink.close();
       _channel = null;
     }
     _mockTimer?.cancel();
     _mockTimer = null;
+    // НЕ сбрасываем _currentSessionId здесь
+  }
+
+  // Добавьте отдельный метод для полного сброса
+  Future<void> forceDisconnect() async {
+    await disconnect();
     _currentSessionId = null;
+    print('🔴 [WS FORCE DISCONNECT] Complete reset');
   }
 
   // --- Глобальное соединение ---
@@ -137,7 +194,7 @@ class WebSocketService {
     }
   }
 
-  // --- Остальные методы без изменений ---
+  // --- Остальные методы ---
 
   void sendMessage(String type, {Map<String, dynamic> payload = const {}}) {
     final message = WSMessage(type: type, payload: payload);
@@ -147,7 +204,10 @@ class WebSocketService {
       return;
     }
     
-    if (_channel == null) return;
+    if (_channel == null) {
+      print('❌ Cannot send message: WebSocket not connected');
+      return;
+    }
     _channel!.sink.add(jsonEncode(message.toJson()));
   }
 
@@ -156,9 +216,14 @@ class WebSocketService {
   }
 
   void _handleMessage(dynamic data) {
+    print('------------ try _handleMessage');
     try {
+      print('------------ try parsing WebSocket message');
       final json = jsonDecode(data);
       final message = WSMessage.fromJson(json);
+      print('🔔 WebSocket message received: ${message.type}');
+      print('🔔 Full message: ${message.payload}');
+      
       for (final listener in _listeners) {
         listener(message);
       }
@@ -185,7 +250,7 @@ class WebSocketService {
   void acceptInvite() => sendMessage(WSMessageType.acceptInvite);
   void declineInvite() => sendMessage(WSMessageType.declineInvite);
   void markReady() => sendMessage(WSMessageType.ready);
-  void startLobby() => sendMessage(WSMessageType.startLobby);
+  void startVoting() => sendMessage(WSMessageType.startVoting);
   void addItem(String name, {String? description, String? imageUrl}) => sendMessage(
     WSMessageType.addItem,
     payload: {'name': name, 'description': description, 'image_url': imageUrl},
@@ -203,4 +268,5 @@ class WebSocketService {
   void leaveLobby() => sendMessage(WSMessageType.leaveLobby);
   void closeLobby() => sendMessage(WSMessageType.closeLobby);
   void backToLobby() => sendMessage(WSMessageType.backToLobby);
+  void unready() => sendMessage(WSMessageType.unready);
 }

@@ -33,18 +33,25 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   String? _errorMessage;
   bool _isNavigating = false;
   Timer? _pollTimer;
+  bool _hasInitialLoad = false;
 
   @override
   void initState() {
     super.initState();
+    print('🟢 SessionScreen initState, sessionId=${widget.sessionId}');
     _repository = ref.read(sessionRepositoryProvider);
     _webSocket = WebSocketService.instance;
     _initWebSocket();
-    _loadSession();
+  
+    if (_webSocket.currentSessionId != widget.sessionId || !_webSocket.isConnected) {
+      print('🟢 Connecting to session WebSocket...');
+      _webSocket.connect(widget.sessionId);
+    } else {
+      print('🟢 Already connected to session ${widget.sessionId}');
+    }
 
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (mounted) _loadSession();
-    });
+    // Загружаем начальное состояние через HTTP с таймаутом
+    _loadSessionWithTimeout();
   }
 
   @override
@@ -58,11 +65,30 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     _webSocket.addListener(_handleWebSocketMessage);
   }
 
+  Future<void> _loadSessionWithTimeout() async {
+    // Ждем ответа от WebSocket 3 секунды
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && !_hasInitialLoad && _session == null) {
+        print('⚠️ WebSocket timeout, loading via HTTP');
+        _loadSession();
+      }
+    });
+    
+    // Загружаем через HTTP сразу для быстрого отображения
+    await _loadSession();
+  }
+
   void _handleWebSocketMessage(WSMessage message) {
     if (!mounted) return;
     
-    print('WebSocket message: ${message.type}');
+    print('🔔 WebSocket message received: ${message.type}');
+    
     switch (message.type) {
+      case WSMessageType.stateChanged:
+        _hasInitialLoad = true;
+        _updateSessionFromMessage(message.payload);
+        break;
+        
       case WSMessageType.participantJoined:
       case WSMessageType.participantLeft:
       case WSMessageType.participantReady:
@@ -71,22 +97,34 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       case WSMessageType.listItemAdded:
       case WSMessageType.listItemUpdated:
       case WSMessageType.listItemDeleted:
-        _loadSession();
+      case WSMessageType.timerUpdated:
+        // Обновляем только при необходимости
+        if (_session != null) {
+          _loadSession(); // Пока оставляем полную перезагрузку
+        }
         break;
         
       case WSMessageType.votingStarted:
         print('Voting started, navigating to ranking screen');
         if (!_isNavigating && mounted) {
           _isNavigating = true;
-          // Используем go вместо pushReplacement для полной замены
           context.go('/session/${widget.sessionId}/ranking');
         }
         break;
         
-      case WSMessageType.stateChanged:
-        // Не перезагружаем сессию, если мы на экране ранжирования
+      case WSMessageType.userVoted:
+        // Показываем уведомление, но не перезагружаем
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${message.payload['username']} проголосовал')),
+          );
+        }
+        break;
+        
+      case WSMessageType.resultsReady:
         if (!_isNavigating && mounted) {
-          _loadSession();
+          _isNavigating = true;
+          context.go('/session/${widget.sessionId}/results');
         }
         break;
         
@@ -106,6 +144,15 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
   }
 
+  void _updateSessionFromMessage(Map<String, dynamic> payload) {
+    setState(() {
+      // Обновляем состояние из WebSocket сообщения
+      _session = SessionModel.fromJson(payload);
+      _isLoading = false;
+      _errorMessage = null;
+      _hasInitialLoad = true;
+    });
+  }
 
   Future<void> _loadSession() async {
     if (!mounted) return;
@@ -120,16 +167,16 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         orElse: () => session.participants.first,
       );
 
+      // Обработка приглашения - НЕ переподключаем WebSocket
       if (myPart.status == ParticipantStatus.invited) {
         await _repository.acceptInvite(widget.sessionId);
-        await WebSocketService.instance.connect(widget.sessionId);
+        // WebSocket уже подключен, просто ждем обновления
         await Future.delayed(const Duration(milliseconds: 300));
         _loadSession();
         return;
       }
 
       setState(() {
-        _session = session;
         if (session.isOwner && (session.status == SessionStatus.waiting || session.status == SessionStatus.editing)) {
           _session = SessionModel(
             id: session.id,
@@ -156,6 +203,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         }
         _isLoading = false;
         _errorMessage = null;
+        _hasInitialLoad = true;
       });
     } catch (e) {
       if (!mounted) return;
@@ -166,23 +214,14 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
   }
 
-
-  void _startLobby() {
+  void _startVoting() {
     if (_isLoading) return;
     if (_session == null) return;
-    print('Starting lobby');
-    _webSocket.startLobby();
-  
-    // Переходим на экран голосования
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted && !_isNavigating) {
-        _isNavigating = true;
-        context.go('/session/${widget.sessionId}/ranking');
-      }
-    });
+    print('Starting voting');
+    _webSocket.startVoting();
   }
   
-  void _toggleReady() {
+  void _toggleReady() async {
     if (_isLoading) return;
     if (_session == null) return;
     
@@ -194,12 +233,27 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       orElse: () => _session!.participants.first,
     );
     
-    if (currentParticipant.isReady) {
-      _webSocket.sendMessage(WSMessageType.unready);
-    } else {
-      _webSocket.markReady();
+    try {
+      if (currentParticipant.isReady) {
+        _webSocket.unready();
+      } else {
+        _webSocket.markReady();
+      }
+      // Не загружаем сразу, ждем WebSocket обновления
+    } catch (e) {
+      print('Error toggling ready: $e');
     }
-    _loadSession();
+  }
+  
+  String? _getCountdownText() {
+    if (_session?.countdownEndsAt == null) return null;
+    final remaining = _session!.countdownEndsAt!.difference(DateTime.now());
+    if (remaining.isNegative) return null;
+    final seconds = remaining.inSeconds;
+    if (seconds <= 0) return null;
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
   }
 
   void _inviteFriends() async {
@@ -207,7 +261,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final result = await context.push<List<int>>('/select-friends?mode=invite');
     if (result != null && result.isNotEmpty && mounted) {
       await _repository.inviteFriends(widget.sessionId, result);
-      _loadSession();
+      // Ждем WebSocket обновления
     }
   }
 
@@ -227,7 +281,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             onPressed: () async {
               Navigator.pop(context);
               await _repository.kickParticipant(widget.sessionId, userId);
-              _loadSession();
+              // Ждем WebSocket обновления
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Выгнать'),
@@ -244,7 +298,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     } else {
       await _repository.lockList(widget.sessionId);
     }
-    _loadSession();
+    // Ждем WebSocket обновления
   }
 
   void _addItem() {
@@ -262,7 +316,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         onSave: (name, description, imageUrl) {
           _webSocket.addItem(name, description: description, imageUrl: imageUrl);
           Navigator.pop(context);
-          _loadSession();
         },
       ),
     );
@@ -284,17 +337,14 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         onSave: (name, description, imageUrl) {
           _webSocket.updateItem(item.id, name: name, description: description, imageUrl: imageUrl);
           Navigator.pop(context);
-          _loadSession(); // ← добавить обновление
         },
         onDelete: () {
           _webSocket.deleteItem(item.id);
           Navigator.pop(context);
-          _loadSession(); // ← добавить обновление
         },
       ),
     );
   }
-
 
   void _deleteItem(SessionListItemModel item) {
     if (_isLoading) return;
@@ -317,7 +367,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             onPressed: () {
               _webSocket.deleteItem(item.id);
               Navigator.pop(context);
-              _loadSession(); // ← важно: обновить список
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Удалить'),
@@ -398,7 +447,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final activeList = session.currentList;
     final items = activeList?.items ?? [];
     
-    // Участники (исключая хоста для готовности)
     final allParticipants = session.participants
         .where((p) => p.status == ParticipantStatus.accepted || p.status == ParticipantStatus.invited)
         .toList();
@@ -410,14 +458,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       appBar: AppBar(
         title: Text(activeList?.name ?? 'Лобби #${session.id}'),
         actions: [
-          // Кнопка пригласить друзей (только хост)
           if (session.isOwner)
             IconButton(
               icon: const Icon(Icons.person_add),
               onPressed: _inviteFriends,
               tooltip: 'Пригласить друзей',
             ),
-          // Кнопка блокировки списка (только хост)
           if (session.isOwner)
             IconButton(
               icon: Icon(session.listLocked ? Icons.lock : Icons.lock_open),
@@ -454,7 +500,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                         'Участники (${allParticipants.length})',
                         style: AppTextStyles.headlineSmall,
                       ),
-                      // Счётчик готовности
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
@@ -474,6 +519,29 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                           ),
                         ),
                       ),
+                      if (_session?.countdownEndsAt != null && _session?.status == SessionStatus.ready)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.timer, size: 14, color: Colors.blue.shade700),
+                              const SizedBox(width: 4),
+                              Text(
+                                _getCountdownText() ?? '',
+                                style: TextStyle(
+                                  color: Colors.blue.shade700,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -517,7 +585,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
               const SizedBox(height: 8),
               CustomButton(
                 text: 'Начать голосование',
-                onPressed: _startLobby,
+                onPressed: _startVoting,
                 backgroundColor: AppColors.secondary,
               ),
             ] else ...[
@@ -536,7 +604,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
               ),
             ],
             
-            // Список элементов (с возможностью редактирования)
+            // Список элементов
             if (items.isNotEmpty || (session.canEditList || session.isOwner))
               Expanded(
                 child: Container(
@@ -630,10 +698,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                                               ),
                                               IconButton(
                                                 icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                                                onPressed: () {
-                                                  _deleteItem(item);
-                                                  _loadSession();
-                                                },
+                                                onPressed: () => _deleteItem(item),
                                               ),
                                             ],
                                           )
