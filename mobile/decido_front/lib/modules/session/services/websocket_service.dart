@@ -72,6 +72,11 @@ class WebSocketService {
   // --- Глобальное соединение ---
 
   Future<void> connectGlobal() async {
+    if (_globalChannel != null) {
+      print('Global WebSocket already connected');
+      return;
+    }
+    
     await _disconnectGlobal();
     
     if (AppConfig.useMocks) {
@@ -110,23 +115,25 @@ class WebSocketService {
   }
 
   void _handleGlobalMessage(dynamic data) {
+    print('🔔 _handleGlobalMessage called with: $data');
     try {
       final json = jsonDecode(data);
+      print('🔔 Decoded JSON: $json');
       final message = WSMessage.fromJson(json);
-      print('Global message received: ${message.type}');
+      print('🔔 Global message type: ${message.type}');
       
       if (message.type == WSMessageType.NAVIGATE_TO_LOBBY) {
         final sessionId = message.payload['session_id'];
-        print('Navigating to lobby: $sessionId');
-        // Используем GoRouter для навигации
-        // Нужно получить контекст через глобальный ключ
+        print('🔔 Navigating to lobby: $sessionId');
         final context = navigatorKey.currentContext;
         if (context != null) {
-          GoRouter.of(context).go('/session/$sessionId');
+          GoRouter.of(context).pushReplacement('/session/$sessionId');
+        } else {
+          print('❌ navigatorKey.currentContext is null!');
         }
       }
     } catch (e) {
-      print('Error parsing global message: $e');
+      print('❌ Error parsing global message: $e');
     }
   }
 

@@ -13,6 +13,7 @@ import '../../services/websocket_service.dart';
 import '../../models/session_models.dart';
 import 'select_friends_screen.dart';
 import 'item_edit_bottom_sheet.dart';
+import '../../../auth/providers/auth_state_provider.dart';
 
 class SessionScreen extends ConsumerStatefulWidget {
   final int sessionId;
@@ -31,6 +32,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   bool _isNavigating = false;
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -39,10 +41,15 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     _webSocket = WebSocketService.instance;
     _initWebSocket();
     _loadSession();
+
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted) _loadSession();
+    });
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _webSocket.removeListener(_handleWebSocketMessage);
     super.dispose();
   }
@@ -105,11 +112,25 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     try {
       final session = await _repository.getLobby(widget.sessionId);
       if (!mounted) return;
+      
+      // Проверяем, нужно ли принять приглашение
+      final currentUserId = ref.read(authStateProvider)?.id;
+      final myPart = session.participants.firstWhere(
+        (p) => p.userId == currentUserId,
+        orElse: () => session.participants.first,
+      );
+
+      if (myPart.status == ParticipantStatus.invited) {
+        await _repository.acceptInvite(widget.sessionId);
+        await WebSocketService.instance.connect(widget.sessionId);
+        await Future.delayed(const Duration(milliseconds: 300));
+        _loadSession();
+        return;
+      }
+
       setState(() {
         _session = session;
-        // Для хоста принудительно включаем редактирование, если статус WAITING или EDITING
         if (session.isOwner && (session.status == SessionStatus.waiting || session.status == SessionStatus.editing)) {
-          // Создаём копию сессии с включенным редактированием
           _session = SessionModel(
             id: session.id,
             ownerId: session.ownerId,
@@ -122,9 +143,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             votingDuration: session.votingDuration,
             createdAt: session.createdAt,
             votingEndsAt: session.votingEndsAt,
+            countdownEndsAt: session.countdownEndsAt,
             results: session.results,
             isOwner: session.isOwner,
-            canEditList: true,  // ← принудительно true для хоста
+            canEditList: true,
             canStart: session.canStart,
             canInvite: session.canInvite,
             canLockList: session.canLockList,
@@ -144,12 +166,31 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
   }
 
+
+  void _startLobby() {
+    if (_isLoading) return;
+    if (_session == null) return;
+    print('Starting lobby');
+    _webSocket.startLobby();
+  
+    // Переходим на экран голосования
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted && !_isNavigating) {
+        _isNavigating = true;
+        context.go('/session/${widget.sessionId}/ranking');
+      }
+    });
+  }
+  
   void _toggleReady() {
     if (_isLoading) return;
     if (_session == null) return;
     
+    final currentUserId = ref.read(authStateProvider)?.id;
+    if (currentUserId == null) return;
+    
     final currentParticipant = _session!.participants.firstWhere(
-      (p) => p.userId == _session!.ownerId,
+      (p) => p.userId == currentUserId,
       orElse: () => _session!.participants.first,
     );
     
@@ -158,24 +199,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     } else {
       _webSocket.markReady();
     }
-  }
-
-
-  void _startLobby() {
-    if (_isLoading) return;
-    if (_session == null) return;
-    print('Starting lobby');
-    _webSocket.startLobby();
-  
-    // Мок-режим: переходим на экран ранжирования сразу
-    if (AppConfig.useMocks) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted && !_isNavigating) {
-          _isNavigating = true;
-          context.pushReplacement('/session/${widget.sessionId}/ranking');
-        }
-      });
-    }
+    _loadSession();
   }
 
   void _inviteFriends() async {
@@ -236,7 +260,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       builder: (context) => ItemEditBottomSheet(
         isNew: true,
         onSave: (name, description, imageUrl) {
-          _repository.addItem(widget.sessionId, name: name, description: description, imageUrl: imageUrl);
+          _webSocket.addItem(name, description: description, imageUrl: imageUrl);
           Navigator.pop(context);
           _loadSession();
         },
@@ -484,31 +508,33 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             const SizedBox(height: 16),
             
             // Кнопки
-            if (!session.isOwner)
+            if (session.isOwner) ...[
               CustomButton(
-                text: regularParticipants.firstWhere(
-                  (p) => p.userId == session.ownerId,
-                  orElse: () => regularParticipants.first,
-                ).isReady
-                    ? 'Не готов'
-                    : 'Готов',
+                text: session.participants.firstWhere((p) => p.isOwner).isReady ? 'Не готов' : 'Готов',
                 onPressed: _toggleReady,
-                backgroundColor: regularParticipants.firstWhere(
-                  (p) => p.userId == session.ownerId,
-                  orElse: () => regularParticipants.first,
-                ).isReady
-                    ? Colors.orange
-                    : AppColors.primary,
+                backgroundColor: session.participants.firstWhere((p) => p.isOwner).isReady ? Colors.orange : AppColors.primary,
               ),
-            
-            if (session.isOwner)
+              const SizedBox(height: 8),
               CustomButton(
                 text: 'Начать голосование',
                 onPressed: _startLobby,
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppColors.secondary,
               ),
-            
-            const SizedBox(height: 16),
+            ] else ...[
+              Builder(
+                builder: (context) {
+                  final myPart = session.participants.firstWhere(
+                    (p) => p.userId == ref.read(authStateProvider)?.id,
+                    orElse: () => session.participants.first,
+                  );
+                  return CustomButton(
+                    text: myPart.isReady ? 'Не готов' : 'Готов',
+                    onPressed: _toggleReady,
+                    backgroundColor: myPart.isReady ? Colors.orange : AppColors.primary,
+                  );
+                },
+              ),
+            ],
             
             // Список элементов (с возможностью редактирования)
             if (items.isNotEmpty || (session.canEditList || session.isOwner))

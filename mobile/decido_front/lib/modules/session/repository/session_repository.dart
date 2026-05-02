@@ -189,6 +189,15 @@ class SessionRepository implements ISessionRepository {
       throw Exception('Ошибка приглашения друзей: $e');
     }
   }
+
+  @override
+  Future<void> acceptInvite(int sessionId) async {
+      try {
+        await DioClient.post('/sessions/$sessionId/accept');
+      } catch (e) {
+        throw Exception('Ошибка принятия приглашения: $e');
+      }
+  }
   
   /// Заблокировать список (только владелец)
   @override

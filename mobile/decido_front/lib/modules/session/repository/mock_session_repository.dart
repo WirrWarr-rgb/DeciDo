@@ -90,6 +90,7 @@ class MockSessionRepository implements ISessionRepository {
       currentList: sessionList,
       participants: participants,
       votingDuration: request.votingDuration,
+      countdownEndsAt: null,
       createdAt: now,
       isOwner: true,
       canEditList: true,
@@ -514,6 +515,7 @@ class MockSessionRepository implements ISessionRepository {
       currentList: map['current_list'] != null ? _mapToList(map['current_list']) : null,
       participants: (map['participants'] as List).map((p) => _mapToParticipant(p)).toList(),
       votingDuration: map['voting_duration'],
+      countdownEndsAt: map['countdown_ends_at'] != null ? DateTime.parse(map['countdown_ends_at']) : null,
       createdAt: DateTime.parse(map['created_at']),
       votingEndsAt: map['voting_ends_at'] != null ? DateTime.parse(map['voting_ends_at']) : null,
       results: map['results'],
@@ -575,6 +577,21 @@ class MockSessionRepository implements ISessionRepository {
       sessionData['participants'] = participants;
       AppConfig.updateSession(sessionId, sessionData);
     }
+  }
+
+  @override
+  Future<void> acceptInvite(int sessionId) async {
+      // В мок-режиме сразу меняем статус
+      final sessionData = AppConfig.getSession(sessionId);
+      if (sessionData != null) {
+        final participants = List<Map<String, dynamic>>.from(sessionData['participants']);
+        final index = participants.indexWhere((p) => p['user_id'] == currentUserId);
+        if (index != -1) {
+          participants[index]['status'] = 'accepted';
+          sessionData['participants'] = participants;
+          AppConfig.updateSession(sessionId, sessionData);
+        }
+      }
   }
 
   @override

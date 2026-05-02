@@ -11,6 +11,7 @@ import 'modules/auth/providers/auth_controller_provider.dart';
 import 'modules/list/models/list_model.dart';
 import 'modules/list/models/list_item_model.dart';
 import 'modules/session/services/websocket_service.dart';
+import 'modules/auth/providers/auth_state_provider.dart';
 
 // Глобальный ключ для навигации (для GoRouter)
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -71,6 +72,13 @@ class _MyAppState extends ConsumerState<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Слушаем изменения авторизации
+    ref.listen(authStateProvider, (previous, next) {
+      if (next != null && previous == null) {
+        // Пользователь только что вошёл — подключаем WebSocket
+        WebSocketService.instance.connectGlobal();
+      }
+    });
     if (_isLoading) {
       return const MaterialApp(
         home: Scaffold(
@@ -89,7 +97,7 @@ class _MyAppState extends ConsumerState<MyApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      routerConfig: router,  // ← GoRouter использует routerConfig
+      routerConfig: router,
     );
   }
 }

@@ -20,6 +20,7 @@ import '../../modules/social/presentation/screens/friends_screen.dart';
 import '../../modules/social/presentation/screens/friend_requests_screen.dart';
 import '../../modules/social/presentation/screens/search_friends_screen.dart';
 import 'route_names.dart';  // Добавляем импорт route_names
+import '../../../main.dart';
 
 // Временно убираем несуществующие экраны
 // import '../../modules/list/presentation/screens/create_list_screen.dart';
@@ -27,6 +28,7 @@ import 'route_names.dart';  // Добавляем импорт route_names
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: RouteNames.onboarding,
     redirect: (context, state) {
       final authState = ref.read(authStateProvider);

@@ -1,14 +1,13 @@
 import '../models/session_models.dart';
 
 abstract class ISessionRepository {
-  // Существующие методы
   Future<SessionModel> createLobby(CreateLobbyRequest request);
   Future<SessionModel> getLobby(int sessionId);
   Future<void> markReady(int sessionId);
-  Future<void> unmarkReady(int sessionId);  // Новый метод
+  Future<void> unmarkReady(int sessionId);
   Future<void> forceStart(int sessionId);
   Future<Map<String, dynamic>> submitVote(int sessionId, {List<int>? rankedItemIds, bool spin = false});
-  Future<Map<String, dynamic>> getResults(int sessionId);  // Изменён тип
+  Future<Map<String, dynamic>> getResults(int sessionId);
   Future<void> leaveLobby(int sessionId);
   Future<void> closeLobby(int sessionId);
   Future<void> backToLobby(int sessionId);
@@ -20,6 +19,7 @@ abstract class ISessionRepository {
   Future<void> inviteFriends(int sessionId, List<int> friendIds);
   Future<void> lockList(int sessionId);
   Future<void> unlockList(int sessionId);
-  Future<void> lockItem(int sessionId, int itemId);    // Новый метод
-  Future<void> unlockItem(int sessionId, int itemId);  // Новый метод
+  Future<void> lockItem(int sessionId, int itemId);
+  Future<void> unlockItem(int sessionId, int itemId);
+  Future<void> acceptInvite(int sessionId);
 }

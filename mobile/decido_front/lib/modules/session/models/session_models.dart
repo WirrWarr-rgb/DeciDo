@@ -230,6 +230,7 @@ class SessionModel extends Equatable {
   final int votingDuration;
   final DateTime createdAt;
   final DateTime? votingEndsAt;
+  final DateTime? countdownEndsAt;
   final Map<String, dynamic>? results;
   
   // Права текущего пользователя
@@ -251,6 +252,7 @@ class SessionModel extends Equatable {
     required this.votingDuration,
     required this.createdAt,
     this.votingEndsAt,
+    this.countdownEndsAt,
     this.results,
     required this.isOwner,
     required this.canEditList,
@@ -278,6 +280,9 @@ class SessionModel extends Equatable {
       votingEndsAt: json['voting_ends_at'] != null 
           ? DateTime.parse(json['voting_ends_at']) 
           : null,
+      countdownEndsAt: json['countdown_ends_at'] != null 
+          ? DateTime.parse(json['countdown_ends_at']) 
+          : null,
       results: json['results'],
       isOwner: json['is_owner'] ?? false,
       canEditList: json['can_edit_list'] ?? false,
@@ -300,6 +305,7 @@ class SessionModel extends Equatable {
       'voting_duration': votingDuration,
       'created_at': createdAt.toIso8601String(),
       'voting_ends_at': votingEndsAt?.toIso8601String(),
+      'countdown_ends_at': countdownEndsAt?.toIso8601String(),
       'results': results,
       'is_owner': isOwner,
       'can_edit_list': canEditList,
@@ -312,7 +318,7 @@ class SessionModel extends Equatable {
   @override
   List<Object?> get props => [
     id, ownerId, ownerName, status, mode, listLocked, currentList,
-    participants, votingDuration, createdAt, votingEndsAt, results,
+    participants, votingDuration, createdAt, votingEndsAt, countdownEndsAt, results,
     isOwner, canEditList, canStart, canInvite, canLockList
   ];
 }
