@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
+import '../../../shared/widgets/custom_drawer.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../repository/friends_repository.dart';
 import '../../models/friend_model.dart';
 import 'friend_requests_screen.dart';
@@ -104,34 +107,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        width: 412,
-        height: 892,
-        clipBehavior: Clip.antiAlias,
-        decoration: ShapeDecoration(
-          color: AppColors.background,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
-        child: Stack(
-          children: [
-            // Заголовок "Друзья"
-            Positioned(
-              left: 82,
-              top: 52,
-              child: Text(
-                'Друзья',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  height: 1.67,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            
+    return CustomScaffold(
+      title: 'Друзья',
+      menuIconColor: AppColors.textPrimary,
+      actions: [
             // Кнопка "Заявки" справа от заголовка
             Positioned(
               left: 267,
@@ -178,6 +157,36 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 ),
               ),
             ),
+
+      ],
+      body: Container(
+        width: 412,
+        height: 892,
+        clipBehavior: Clip.antiAlias,
+        decoration: ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Заголовок "Друзья"
+            Positioned(
+              left: 82,
+              top: 52,
+              child: Text(
+                'Друзья',
+                style: AppTextStyles.headlineMedium.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: 24,
+                  height: 1.67,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            
+
             
             // Кнопка меню (три полоски) - временно пустая заглушка
             Positioned(

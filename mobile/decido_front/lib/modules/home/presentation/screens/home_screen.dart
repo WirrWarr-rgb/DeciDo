@@ -4,9 +4,12 @@ import 'package:go_router/go_router.dart';
 import '../../../../config/router/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
 import '../../../shared/widgets/custom_button.dart';
 import '../../../auth/providers/auth_controller_provider.dart';
 import '../../../auth/providers/auth_state_provider.dart';
+import '../../../shared/widgets/custom_drawer.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -15,16 +18,9 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStateProvider);
     
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('DeciDo'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _showLogoutDialog(context, ref),
-          ),
-        ],
-      ),
+    return CustomScaffold(
+      title: 'DeciDo',
+      menuIconColor: AppColors.textLight, 
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -33,7 +29,8 @@ class HomeScreen extends ConsumerWidget {
               'Добро пожаловать, ${user?.username ?? 'Гость'}!',
               style: AppTextStyles.headlineLarge,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 48),
+            
             Text(
               'Что хочешь сделать?',
               style: AppTextStyles.headlineMedium,
@@ -60,6 +57,7 @@ class HomeScreen extends ConsumerWidget {
               icon: Icons.people,
               width: 200,
             ),
+            const SizedBox(height: 48),
 
             // Кнопка перехода к созданию лобби
             CustomButton(
@@ -68,6 +66,16 @@ class HomeScreen extends ConsumerWidget {
                 context.push(RouteNames.createSession);
               },
               icon: Icons.groups,
+              width: 200,
+            ),
+            const SizedBox(height: 48),
+
+            CustomButton(
+              text: 'Случайный выбор',
+              onPressed: () {
+                context.push('/select-random-list');
+              },
+              icon: Icons.casino,
               width: 200,
             ),
           ],

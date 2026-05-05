@@ -1,10 +1,13 @@
 import 'package:decido_front/modules/shared/widgets/custom_button.dart';
+import 'package:decido_front/modules/shared/widgets/custom_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
+import '../../../shared/widgets/custom_drawer.dart';
 import '../../repository/list_repository.dart';
 import '../../models/list_model.dart';
 import 'edit_list_screen.dart';
@@ -99,7 +102,9 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return CustomScaffold(
+      title: 'Мои списки',
+      menuIconColor: AppColors.textPrimary,
       body: Container(
         width: 412,
         height: 892,

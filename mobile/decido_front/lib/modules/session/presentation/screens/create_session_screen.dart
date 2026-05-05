@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../../list/repository/list_repository.dart';
 import '../../../social/repository/friends_repository.dart';
@@ -152,10 +154,10 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
     final isLoading = ref.watch(sessionLoadingProvider);
     final friendIds = ref.watch(selectedFriendsProvider);
     
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Создание лобби'),
-      ),
+    return CustomScaffold(
+      title: 'Создание лобби',
+      showBackButton: true,
+      menuIconColor: AppColors.textPrimary,
       body: isLoading
           ? const LoadingWidget()
           : Padding(

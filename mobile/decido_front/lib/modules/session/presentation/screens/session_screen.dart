@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../../config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../providers/session_providers.dart';
 import '../../repository/i_session_repository.dart';
@@ -219,6 +221,17 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     if (_session == null) return;
     print('Starting voting');
     _webSocket.startVoting();
+
+    // Для мок-режима сразу переходим
+    if (AppConfig.useMocks) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && !_isNavigating) {
+          _isNavigating = true;
+          context.go('/session/${widget.sessionId}/ranking');
+        }
+      });
+      return;
+    }
   }
   
   void _toggleReady() async {
@@ -454,29 +467,26 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final readyCount = regularParticipants.where((p) => p.isReady).length;
     final totalRegular = regularParticipants.length;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(activeList?.name ?? 'Лобби #${session.id}'),
-        actions: [
-          if (session.isOwner)
-            IconButton(
-              icon: const Icon(Icons.person_add),
-              onPressed: _inviteFriends,
-              tooltip: 'Пригласить друзей',
-            ),
-          if (session.isOwner)
-            IconButton(
-              icon: Icon(session.listLocked ? Icons.lock : Icons.lock_open),
-              onPressed: _toggleListLock,
-              tooltip: session.listLocked ? 'Разблокировать список' : 'Заблокировать список',
-            ),
+    return CustomScaffold(
+      title: activeList?.name ?? 'Лобби #${session.id}',
+      showBackButton: true,
+      menuIconColor: AppColors.textPrimary,
+      actions: [
+        if (session.isOwner)
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _leaveLobby,
-            tooltip: session.isOwner ? 'Закрыть лобби' : 'Покинуть лобби',
+            icon: const Icon(Icons.person_add),
+            onPressed: _inviteFriends,
           ),
-        ],
-      ),
+        if (session.isOwner)
+          IconButton(
+            icon: Icon(session.listLocked ? Icons.lock : Icons.lock_open),
+            onPressed: _toggleListLock,
+          ),
+        IconButton(
+          icon: const Icon(Icons.logout),
+          onPressed: _leaveLobby,
+        ),
+      ],
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
