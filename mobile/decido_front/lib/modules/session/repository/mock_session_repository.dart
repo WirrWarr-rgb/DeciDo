@@ -39,7 +39,7 @@ class MockSessionRepository implements ISessionRepository {
     }
     
     final sessionList = SessionListModel(
-      id: "1",
+      id: 1,
       name: request.listData.name,
       isActive: true,
       items: items,

@@ -71,23 +71,67 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
     
     switch (message.type) {
       case WSMessageType.userVoted:
-        _loadSession();  // Обновляем счётчик проголосовавших
+        // Только обновляем счётчик проголосовавших, не трогаем элементы
+        if (_session != null) {
+          final userId = message.payload['user_id'];
+          final updatedParticipants = _session!.participants.map((p) {
+            if (p.userId == userId) {
+              return ParticipantModel(
+                userId: p.userId,
+                username: p.username,
+                status: p.status,
+                isReady: p.isReady,
+                hasVoted: true,
+                isOwner: p.isOwner,
+                invitedAt: p.invitedAt,
+                joinedAt: p.joinedAt,
+              );
+            }
+            return p;
+          }).toList();
+          setState(() {
+            _session = SessionModel(
+              id: _session!.id,
+              ownerId: _session!.ownerId,
+              ownerName: _session!.ownerName,
+              status: _session!.status,
+              mode: _session!.mode,
+              listLocked: _session!.listLocked,
+              currentList: _session!.currentList,
+              participants: updatedParticipants,
+              votingDuration: _session!.votingDuration,
+              createdAt: _session!.createdAt,
+              votingEndsAt: _session!.votingEndsAt,
+              countdownEndsAt: _session!.countdownEndsAt,
+              results: _session!.results,
+              isOwner: _session!.isOwner,
+              canEditList: _session!.canEditList,
+              canStart: _session!.canStart,
+              canInvite: _session!.canInvite,
+              canLockList: _session!.canLockList,
+            );
+          });
+        }
         break;
+        
       case WSMessageType.resultsReady:
         if (!_isNavigating && mounted) {
           _isNavigating = true;
           context.pushReplacement('/session/${widget.sessionId}/results');
         }
         break;
+        
       case WSMessageType.lobbyClosed:
         if (!_isNavigating && mounted) {
           _isNavigating = true;
           context.go('/home');
         }
         break;
+        
       case WSMessageType.error:
         _showError(message.payload['message'] ?? 'Ошибка');
         break;
+        
       default:
         break;
     }

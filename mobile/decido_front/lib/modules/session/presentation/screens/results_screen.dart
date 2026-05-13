@@ -146,8 +146,25 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
         _isNavigating = false;
       }
     } else {
-      if (mounted) {
-        context.pushReplacement('/session/${widget.sessionId}');
+      // Проверяем статус — если хост ещё не вернулся, показываем ожидание
+      try {
+        final session = await _repository.getLobby(widget.sessionId);
+        if (session.status == SessionStatus.results) {
+          // Хост ещё не нажал "В лобби"
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ожидаем хоста...')),
+            );
+          }
+          _isNavigating = false;
+          return;
+        }
+        if (mounted) {
+          context.pushReplacement('/session/${widget.sessionId}');
+        }
+      } catch (e) {
+        _showError(e.toString());
+        _isNavigating = false;
       }
     }
   }

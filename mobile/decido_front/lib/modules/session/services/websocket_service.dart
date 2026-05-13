@@ -35,6 +35,13 @@ class WebSocketService {
     print('🟢 [WS CONNECT] Starting connection to session $sessionId');
     print('   Current state: _currentSessionId=$_currentSessionId, _isConnected=$_isConnected, _isConnecting=$_isConnecting');
     
+    // Если та же сессия, но не подключены — сбрасываем состояние
+    if (_currentSessionId == sessionId && !_isConnected) {
+      print('🟢 [WS CONNECT] Same session but not connected, resetting');
+      _isConnecting = false;
+      _channel = null;
+    }
+    
     // Если уже подключены к этой сессии, ничего не делаем
     if (_currentSessionId == sessionId && _isConnected && _channel != null) {
       print('🟢 [WS CONNECT] Already connected to session $sessionId, skipping');
@@ -57,30 +64,21 @@ class WebSocketService {
     _currentSessionId = sessionId;
     _isConnected = false;
     
-    if (AppConfig.useMocks) {
-      print('Mock WebSocket connected to session $sessionId');
-      _startMockHeartbeat();
-      _isConnected = true;
+    final token = await SecureStorage.getAccessToken();
+    if (token == null) {
+      print('❌ [WS] No token');
       _isConnecting = false;
       return;
     }
     
-    final token = await SecureStorage.getAccessToken();
-    if (token == null) {
-      print('❌ [WS CONNECT] No token');
-      _isConnecting = false;
-      throw Exception('No token');
-    }
-    
     final wsUrl = '${EnvConfig.wsBaseUrl}/sessions/$sessionId/ws?token=Bearer $token';
-    print('Connecting to WebSocket: $wsUrl');
+    print('🟢 [WS] Connecting to: $wsUrl');
     
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
       
       _channel!.stream.listen(
         (data) {
-          print('🟢 [WS] Data received, setting connected=true');
           _isConnected = true;
           _isConnecting = false;
           _handleMessage(data);
@@ -91,16 +89,16 @@ class WebSocketService {
           _isConnecting = false;
         },
         onDone: () {
-          print('🔴 [WS] Done (disconnected)');
+          print('🔴 [WS] Connection closed');
           _isConnected = false;
           _isConnecting = false;
           _channel = null;
         },
       );
       
-      print('🟢 [WS CONNECT] Connection initiated to session $sessionId');
+      print('🟢 [WS] Connection initiated');
     } catch (e) {
-      print('WebSocket connection failed: $e');
+      print('❌ [WS] Connection failed: $e');
       _isConnected = false;
       _isConnecting = false;
     }

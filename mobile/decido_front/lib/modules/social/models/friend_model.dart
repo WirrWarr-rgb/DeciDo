@@ -4,7 +4,7 @@ class FriendModel extends Equatable {
   final int id;
   final String username;
   final String email;
-  final bool isActive;
+  final bool? isActive;
   
   const FriendModel({
     required this.id,
@@ -18,7 +18,7 @@ class FriendModel extends Equatable {
       id: json['id'],
       username: json['username'],
       email: json['email'],
-      isActive: json['isActive'],
+      isActive: json['is_active'],
     );
   }
   

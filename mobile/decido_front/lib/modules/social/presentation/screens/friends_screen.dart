@@ -111,53 +111,43 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       title: 'Друзья',
       menuIconColor: AppColors.textPrimary,
       actions: [
-            // Кнопка "Заявки" справа от заголовка
-            Positioned(
-              left: 267,
-              top: 57,
-              child: GestureDetector(
-                onTap: () {
-                  context.push('/friend-requests').then((_) {
-                    _loadFriends();
-                    _checkPendingRequests();
-                  });
-                },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Текст "Заявки"
-                    Text(
-                      'Заявки',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 16,
-                        fontFamily: 'Instrument Sans',
-                        fontWeight: FontWeight.w700,
-                        height: 1.38,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    // Иконка уведомления (показывается только если есть запросы)
-                    if (_hasPendingRequests) ...[
-                      SvgPicture.asset(
-                        'assets/icons/notif_dot_icon.svg',
-                        width: 10,
-                        height: 10,
-                      ),
-                      const SizedBox(width: 5),
-                    ],
-                    // Иконка стрелки
-                    SvgPicture.asset(
-                      'assets/icons/navigation_arrow_right.svg',
-                      width: 20,
-                      height: 20,
-                    ),
-                  ],
+        // Кнопка "Заявки" - исправлено: без Positioned
+        GestureDetector(
+          onTap: () {
+            context.push('/friend-requests').then((_) {
+              _loadFriends();
+              _checkPendingRequests();
+            });
+          },
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Заявки',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontFamily: 'Instrument Sans',
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
-
+              const SizedBox(width: 5),
+              if (_hasPendingRequests) ...[
+                SvgPicture.asset(
+                  'assets/icons/notif_dot_icon.svg',
+                  width: 10,
+                  height: 10,
+                ),
+                const SizedBox(width: 5),
+              ],
+              SvgPicture.asset(
+                'assets/icons/navigation_arrow_right.svg',
+                width: 20,
+                height: 20,
+              ),
+            ],
+          ),
+        ),
       ],
       body: Container(
         width: 412,
@@ -186,9 +176,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               ),
             ),
             
-
-            
-            // Кнопка меню (три полоски) - временно пустая заглушка
+            // Кнопка меню
             Positioned(
               left: 10,
               top: 52,
@@ -197,9 +185,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 height: 37,
                 child: IconButton(
                   icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                  onPressed: () {
-                    // TODO: Открыть pop-up меню
-                  },
+                  onPressed: () {},
                   padding: EdgeInsets.zero,
                 ),
               ),
@@ -216,7 +202,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               ),
             ),
             
-            // Кнопка добавления друга (круглая оранжевая)
+            // Кнопка добавления друга
             Positioned(
               left: 176,
               top: 775,
@@ -285,10 +271,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
           children: [
             Icon(Icons.people_outline, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text(
-              'У вас пока нет друзей',
-              style: AppTextStyles.bodyMedium,
-            ),
+            Text('У вас пока нет друзей', style: AppTextStyles.bodyMedium),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
@@ -312,7 +295,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
           margin: const EdgeInsets.only(bottom: 15),
           child: Stack(
             children: [
-              // Аватар друга
               Container(
                 width: 65,
                 height: 65,
@@ -331,7 +313,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   ),
                 ),
               ),
-              // Информация о друге
               Positioned(
                 left: 80,
                 top: 5,
@@ -349,7 +330,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                           fontSize: 20,
                           fontFamily: 'Instrument Sans',
                           fontWeight: FontWeight.w500,
-                          height: 1.10,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -363,7 +343,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                           fontSize: 16,
                           fontFamily: 'Instrument Sans',
                           fontWeight: FontWeight.w500,
-                          height: 1.38,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -371,7 +350,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   ],
                 ),
               ),
-              // Кнопка удаления
               Positioned(
                 right: 0,
                 top: 15,

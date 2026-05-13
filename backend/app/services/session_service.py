@@ -664,6 +664,11 @@ class SessionService:
     async def _start_voting(self, session_id: int) -> Session:
         """Начать голосование"""
         session = await self._get_session(session_id)
+        
+        active_list = await self.list_service.get_active_list(session_id)
+        if not active_list or len(active_list.items) == 0:
+            raise ValueError("Нельзя начать голосование с пустым списком")
+        
         now = datetime.now(timezone.utc)
         
         session.status = SessionStatus.VOTING
@@ -739,8 +744,8 @@ class SessionService:
                 "is_ready": p.is_ready,
                 "has_voted": p.has_voted,
                 "is_owner": (p.user_id == session.owner_id),
-                "invited_at": p.invited_at,
-                "joined_at": p.joined_at
+                "invited_at": p.invited_at.isoformat() if p.invited_at else None,
+                "joined_at": p.joined_at.isoformat() if p.joined_at else None
             })
         
         # Формируем список
@@ -864,3 +869,49 @@ class SessionService:
             "invitations": [await self.get_lobby(s.id, user_id) for s in invitations],
             "history": [await self.get_lobby(s.id, user_id) for s in history]
         }
+    
+    async def invite_friends(
+        self, 
+        session_id: int, 
+        owner_id: int, 
+        friend_ids: List[int]
+    ) -> List[SessionParticipant]:
+        """Пригласить друзей в лобби (только владелец)"""
+        
+        session = await self._get_session(session_id)
+        
+        if session.owner_id != owner_id:
+            raise ValueError("Only owner can invite")
+        
+        if session.status == SessionStatus.CLOSED:
+            raise ValueError("Lobby is closed")
+        
+        participants = []
+        for friend_id in friend_ids:
+            # Проверяем, не участник ли уже
+            existing = await self.db.execute(
+                select(SessionParticipant).where(
+                    SessionParticipant.session_id == session_id,
+                    SessionParticipant.user_id == friend_id
+                )
+            )
+            existing_participant = existing.scalar_one_or_none()
+            
+            if existing_participant:
+                # Если был LEFT, меняем статус обратно на INVITED
+                if existing_participant.status == ParticipantStatus.LEFT:
+                    existing_participant.status = ParticipantStatus.INVITED
+                    existing_participant.left_at = None
+                    participants.append(existing_participant)
+            else:
+                participant = SessionParticipant(
+                    session_id=session_id,
+                    user_id=friend_id,
+                    status=ParticipantStatus.INVITED,
+                    invited_by=owner_id
+                )
+                self.db.add(participant)
+                participants.append(participant)
+        
+        await self.db.commit()
+        return participants

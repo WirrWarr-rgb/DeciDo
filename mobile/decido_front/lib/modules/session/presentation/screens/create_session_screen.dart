@@ -99,7 +99,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
     )).toList();
     
     final copiedList = SessionListModel(
-      id: originalId,
+      id: originalId.hashCode,
       name: list.name,
       isActive: list.isActive,
       items: copiedItems,
