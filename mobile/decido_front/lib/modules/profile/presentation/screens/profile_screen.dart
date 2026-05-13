@@ -1,5 +1,6 @@
 
 
+import 'package:decido_front/modules/shared/widgets/custom_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -62,7 +63,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider);
 
-    return Scaffold(
+    return CustomScaffold(
+      title: "",
       body: Container(
         width: 412,
         height: 895,

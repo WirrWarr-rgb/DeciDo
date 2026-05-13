@@ -28,4 +28,9 @@ class RouteNames {
   static const selectFriends = '/select-friends';
   static const ranking = '/session/:id/ranking';
   static const results = '/session/:id/results';
+
+  // Колесо фортуны
+  static const selectRandomList = '/select-random-list';
+  static const randomWheel = '/random-wheel';
+  static const randomResult = '/random-result';
 }

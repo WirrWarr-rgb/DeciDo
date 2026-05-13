@@ -213,8 +213,58 @@ class WebSocketService {
 
   void _handleMockMessage(WSMessage message) {
     print('Mock send: ${message.type}');
+    
+    switch (message.type) {
+      case WSMessageType.startVoting:
+        print('Mock: Voting started, notifying listeners');
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _notifyListeners(WSMessage(
+            type: WSMessageType.votingStarted,
+            payload: {},
+          ));
+        });
+        break;
+      case WSMessageType.ready:
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _notifyListeners(WSMessage(
+            type: WSMessageType.participantReady,
+            payload: {'user_id': 1, 'username': 'Я (Хост)'},
+          ));
+        });
+        break;
+      case WSMessageType.vote:
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _notifyListeners(WSMessage(
+            type: WSMessageType.userVoted,
+            payload: {'user_id': 1, 'username': 'Я (Хост)'},
+          ));
+        });
+        break;
+      case WSMessageType.addItem:
+      case WSMessageType.updateItem:
+      case WSMessageType.deleteItem:
+      case WSMessageType.updateOrder:
+        _notifyListeners(WSMessage(
+          type: WSMessageType.stateChanged,
+          payload: {},
+        ));
+        break;
+      case WSMessageType.leaveLobby:
+      case WSMessageType.closeLobby:
+        _notifyListeners(WSMessage(
+          type: WSMessageType.lobbyClosed,
+          payload: {'session_id': _currentSessionId},
+        ));
+        break;
+      default:
+        break;
+    }
   }
-
+  void _notifyListeners(WSMessage message) {
+    for (final listener in _listeners) {
+      listener(message);
+    }
+  }
   void _handleMessage(dynamic data) {
     print('------------ try _handleMessage');
     try {

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../social/repository/friends_repository.dart';
 import '../../../social/models/friend_model.dart';
 import '../../providers/session_providers.dart';
@@ -78,19 +80,20 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Выбрать друзей'),
-        actions: [
-          TextButton(
-            onPressed: _confirmSelection,
-            child: Text(
-              'Готово (${_selectedFriendIds.length})',
-              style: const TextStyle(color: Colors.white),
-            ),
+    return CustomScaffold(
+      title: 'Выбрать друзей',
+      showBackButton: true,
+      menuIconColor: AppColors.textPrimary,
+      resizeToAvoidBottomInset: false,
+      actions: [
+        TextButton(
+          onPressed: _confirmSelection,
+          child: Text(
+            'Готово (${_selectedFriendIds.length})',
+            style: const TextStyle(color: AppColors.textPrimary),
           ),
-        ],
-      ),
+        ),
+      ],
       body: Column(
         children: [
           // Поле поиска

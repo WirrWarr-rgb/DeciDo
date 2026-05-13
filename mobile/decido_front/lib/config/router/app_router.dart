@@ -8,6 +8,7 @@ import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/home/presentation/screens/home_screen.dart';
 import '../../modules/auth/providers/auth_state_provider.dart';
 import '../../modules/profile/presentation/screens/profile_screen.dart';
+import '../../modules/random/models/random_item_model.dart';
 import '../../modules/session/presentation/screens/create_session_screen.dart';
 import '../../modules/session/presentation/screens/ranking_screen.dart';
 import '../../modules/session/presentation/screens/results_screen.dart';
@@ -19,6 +20,9 @@ import '../../modules/list/presentation/screens/edit_list_screen.dart';
 import '../../modules/social/presentation/screens/friends_screen.dart';
 import '../../modules/social/presentation/screens/friend_requests_screen.dart';
 import '../../modules/social/presentation/screens/search_friends_screen.dart';
+import '../../modules/random/presentation/screens/select_random_list_screen.dart';
+import '../../modules/random/presentation/screens/random_wheel_screen.dart';
+import '../../modules/random/presentation/screens/random_result_screen.dart';
 import 'route_names.dart';  // Добавляем импорт route_names
 import '../../../main.dart';
 
@@ -158,6 +162,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           return ResultsScreen(sessionId: int.parse(id));
+        },
+      ),
+
+
+      // Колесо фортуны
+      GoRoute(
+        path: RouteNames.selectRandomList,
+        name: 'selectRandomList',
+        builder: (context, state) => const SelectRandomListScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.randomWheel,
+        name: 'randomWheel',
+        builder: (context, state) {
+          final list = state.extra as RandomListModel;
+          return RandomWheelScreen(list: list);
         },
       ),
     ],

@@ -8,11 +8,11 @@ import '../models/user_search_model.dart';
 class FriendsRepository {
   // Мок-данные для друзей
   static final List<FriendModel> _mockFriends = [
-    FriendModel(id: 2, username: 'Анна', email: 'anna@example.com'),
-    FriendModel(id: 3, username: 'Дмитрий', email: 'dmitry@example.com'),
-    FriendModel(id: 4, username: 'Елена', email: 'elena@example.com'),
-    FriendModel(id: 5, username: 'Максим', email: 'maxim@example.com'),
-    FriendModel(id: 6, username: 'Ольга', email: 'olga@example.com'),
+    FriendModel(id: 2, username: 'Анна', email: 'anna@example.com', isActive: true),
+    FriendModel(id: 3, username: 'Дмитрий', email: 'dmitry@example.com', isActive: true),
+    FriendModel(id: 4, username: 'Елена', email: 'elena@example.com', isActive: true),
+    FriendModel(id: 5, username: 'Максим', email: 'maxim@example.com', isActive: true),
+    FriendModel(id: 6, username: 'Ольга', email: 'olga@example.com', isActive: true),
   ];
   
   // Мок-пользователи для поиска
@@ -173,6 +173,7 @@ class FriendsRepository {
           id: request.userId,
           username: 'Пользователь #${request.userId}',
           email: '',
+          isActive: false
         ));
         // Удаляем заявку
         _mockIncomingRequests.removeAt(requestIndex);
@@ -245,7 +246,7 @@ class FriendsRepository {
       // Ищем среди друзей
       final friend = _mockFriends.firstWhere(
         (f) => f.id == userId,
-        orElse: () => FriendModel(id: -1, username: '', email: ''),
+        orElse: () => FriendModel(id: -1, username: '', email: '', isActive: false),
       );
       
       if (friend.id != -1) {
