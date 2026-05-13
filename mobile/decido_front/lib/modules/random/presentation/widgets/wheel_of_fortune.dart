@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/custom_button.dart';
 import '../../models/random_item_model.dart';
 
@@ -9,17 +8,17 @@ class WheelOfFortune extends StatefulWidget {
   final List<RandomItemModel> items;
   final Function(RandomItemModel) onSpinEnd;
   final Duration spinDuration;
-  final Curve spinCurve; // Кривая замедления
-  final int minRotations; // Минимальное количество оборотов
-  final int maxRotations; // Максимальное количество оборотов
-  final double maxLiftDistance; // Максимальное расстояние выдвижения (пиксели)
+  final Curve spinCurve;
+  final int minRotations;
+  final int maxRotations;
+  final double maxLiftDistance;
 
   const WheelOfFortune({
     super.key,
     required this.items,
     required this.onSpinEnd,
     this.spinDuration = const Duration(seconds: 4),
-    this.spinCurve = Curves.easeOutBack, // Плавное замедление с легким отскоком
+    this.spinCurve = Curves.easeOutBack,
     this.minRotations = 6,
     this.maxRotations = 12,
     this.maxLiftDistance = 50,
@@ -42,9 +41,20 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
   int? _currentWinnerIndex;
   
   final double _radius = 180;
-  final double _cardWidth = 200;
-  final double _cardHeight = 80;
+  final double _cardWidth = 195;
+  final double _cardHeight = 77;
   final double _baseRadius = 130;
+
+  final List<Color> _cardColors = [
+    AppColors.primary,
+    AppColors.secondary,
+    AppColors.tertiary,
+    AppColors.inputBackground,
+    AppColors.primary.withOpacity(0.8),
+    AppColors.secondary.withOpacity(0.8),
+    AppColors.tertiary.withOpacity(0.8),
+    AppColors.inputBackground.withOpacity(0.8),
+  ];
 
   @override
   void initState() {
@@ -61,28 +71,32 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
     super.dispose();
   }
 
-  // Определяем силу выдвижения для элемента
-  double _getLiftStrength(int itemIndex, double wheelAngle) {
+  // ТОЧНОЕ определение победителя - ищем элемент с минимальным угловым расстоянием до стрелки
+  RandomItemModel _getExactWinnerByAngle(double wheelAngle) {
     const pointerAngle = -pi / 2;
     
-    final sectorAngle = 2 * pi / widget.items.length;
-    final localCardAngle = sectorAngle * (itemIndex + 0.5);
-    final globalCardAngle = localCardAngle + wheelAngle;
+    double minDistance = double.infinity;
+    int winnerIndex = 0;
     
-    var angleDiff = (globalCardAngle - pointerAngle) % (2 * pi);
-    if (angleDiff > pi) angleDiff = 2 * pi - angleDiff;
-    
-    final maxDistance = sectorAngle / 2;
-    if (angleDiff <= maxDistance) {
-      final strength = 1.0 - pow(angleDiff / maxDistance, 1.5); // Более резкий пик
-      return strength.toDouble();
+    for (int i = 0; i < widget.items.length; i++) {
+      final sectorAngle = 2 * pi / widget.items.length;
+      final localCardAngle = sectorAngle * (i + 0.5);
+      final globalCardAngle = localCardAngle + wheelAngle;
+      
+      var angleDiff = (globalCardAngle - pointerAngle).abs() % (2 * pi);
+      if (angleDiff > pi) angleDiff = 2 * pi - angleDiff;
+      
+      if (angleDiff < minDistance) {
+        minDistance = angleDiff;
+        winnerIndex = i;
+      }
     }
     
-    return 0.0;
+    return widget.items[winnerIndex];
   }
 
-  // Определяем победителя
-  RandomItemModel _getWinnerByAngle(double wheelAngle) {
+  // Быстрое определение для анимации (во время вращения)
+  RandomItemModel _getQuickWinnerByAngle(double wheelAngle) {
     const pointerAngle = -pi / 2;
     final angleUnderPointer = (pointerAngle - wheelAngle) % (2 * pi);
     final sectorAngle = 2 * pi / widget.items.length;
@@ -90,10 +104,35 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
     return widget.items[sectorIndex % widget.items.length];
   }
 
+  // Плавное выдвижение элемента в зависимости от близости к стрелке
+  double _getLiftStrengthDuringSpin(int itemIndex, double wheelAngle) {
+    const pointerAngle = -pi / 2;
+    
+    final sectorAngle = 2 * pi / widget.items.length;
+    final localCardAngle = sectorAngle * (itemIndex + 0.5);
+    final globalCardAngle = localCardAngle + wheelAngle;
+    
+    // Вычисляем угловое расстояние до стрелки
+    var angleDiff = (globalCardAngle - pointerAngle).abs() % (2 * pi);
+    if (angleDiff > pi) angleDiff = 2 * pi - angleDiff;
+    
+    // Максимальное расстояние, на котором элемент начинает выдвигаться - половина сектора
+    final maxDistance = sectorAngle / 2;
+    
+    if (angleDiff <= maxDistance) {
+      // Плавное выдвижение: чем ближе к стрелке, тем сильнее выдвижение
+      // Используем квадратичную функцию для более плавного эффекта
+      final strength = 1.0 - pow(angleDiff / maxDistance, 1.5);
+      return strength.toDouble();
+    }
+    
+    return 0.0;
+  }
+
   void _updateCurrentWinner() {
     if (!_isSpinning) return;
     
-    final currentWinner = _getWinnerByAngle(_currentAngle);
+    final currentWinner = _getQuickWinnerByAngle(_currentAngle);
     final newWinnerIndex = widget.items.indexOf(currentWinner);
     
     if (_currentWinnerIndex != newWinnerIndex) {
@@ -115,7 +154,6 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
     });
     
     final random = Random();
-    // Используем настраиваемые обороты
     final fullRotations = widget.minRotations + random.nextInt(widget.maxRotations - widget.minRotations + 1);
     
     final sectorAngle = 2 * pi / widget.items.length;
@@ -134,7 +172,6 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
     
     _targetAngle += deltaToTarget;
     
-    // Используем настраиваемую кривую замедления
     _animation = Tween<double>(
       begin: _currentAngle,
       end: _targetAngle,
@@ -148,12 +185,32 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
     
     _controller.reset();
     _controller.forward().then((_) {
+      final finalAngle = _currentAngle;
+      final finalWinner = _getExactWinnerByAngle(finalAngle);
+      final finalWinnerIndex = widget.items.indexOf(finalWinner);
+      
+      print('═══════════════════════════════════════');
+      print('🎯 ФИНАЛЬНЫЙ ПОБЕДИТЕЛЬ: ${finalWinner.name}');
+      print('Индекс: $finalWinnerIndex');
+      print('Угол остановки: ${(finalAngle * 180 / pi).toStringAsFixed(2)}°');
+      print('═══════════════════════════════════════');
+      
       setState(() {
         _hasStopped = true;
         _isSpinning = false;
-        _showWinnerConfirmation = true;
+        _winner = finalWinner;
+        _currentWinnerIndex = finalWinnerIndex;
       });
-      _finalizeWinner();
+      
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          setState(() {
+            _showWinnerConfirmation = true;
+          });
+        }
+      });
+      
+      _finalizeWinner(finalWinner);
     });
   }
   
@@ -164,21 +221,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
     _updateCurrentWinner();
   }
 
-  void _finalizeWinner() {
-    final winner = _getWinnerByAngle(_currentAngle);
-    
-    print('═══════════════════════════════════════');
-    print('Winner: ${winner.name}');
-    print('Rotations: ${widget.minRotations}-${widget.maxRotations}');
-    print('Duration: ${widget.spinDuration.inSeconds} seconds');
-    print('Curve: ${widget.spinCurve.toString()}');
-    print('═══════════════════════════════════════');
-    
-    setState(() {
-      _winner = winner;
-      _currentWinnerIndex = widget.items.indexOf(winner);
-    });
-    
+  void _finalizeWinner(RandomItemModel winner) {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted && _winner != null) {
         widget.onSpinEnd(_winner!);
@@ -190,33 +233,11 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final centerX = screenWidth / 2;
-    final totalHeight = _radius * 2 + 200;
-    
-    final List<Color> segmentColors = [
-      AppColors.primary,
-      AppColors.secondary,
-      AppColors.tertiary,
-      AppColors.inputBackground,
-      AppColors.primary.withOpacity(0.8),
-      AppColors.secondary.withOpacity(0.8),
-      AppColors.tertiary.withOpacity(0.8),
-      AppColors.inputBackground.withOpacity(0.8),
-    ];
+    final totalHeight = _radius * 2 + 100;
     
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          'Крути колесо!',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        
-        const SizedBox(height: 20),
-        
         SizedBox(
           height: totalHeight,
           child: Stack(
@@ -225,7 +246,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
             children: [
               // Указатель сверху
               Positioned(
-                top: 0,
+                top: -40,
                 left: centerX - 20,
                 child: Container(
                   width: 40,
@@ -251,7 +272,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
               
               // Область вращения
               Positioned(
-                top: 40,
+                top: 60,
                 left: centerX - _radius,
                 child: SizedBox(
                   width: _radius * 2,
@@ -265,12 +286,27 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                         final cardAngle = sectorAngle * (index + 0.5);
                         
                         double liftStrength = 0;
+                        bool needsHighlight = false;
+                        
                         if (_isSpinning) {
-                          liftStrength = _getLiftStrength(index, _currentAngle);
-                        } else if (_hasStopped && _winner?.id == widget.items[index].id) {
-                          liftStrength = 1.0;
-                          liftStrength += sin(DateTime.now().millisecondsSinceEpoch / 200) * 0.15;
-                          liftStrength = min(liftStrength, 1.2);
+                          // Во время вращения - плавное выдвижение и подсветка при приближении к стрелке
+                          liftStrength = _getLiftStrengthDuringSpin(index, _currentAngle);
+                          needsHighlight = liftStrength > 0; // Подсвечиваем при любом выдвижении
+                        } 
+                        else if (_hasStopped && _winner != null) {
+                          // После остановки - ТОЛЬКО финальный победитель получает выдвижение и подсветку
+                          final bool isWinner = (index == _currentWinnerIndex);
+                          
+                          if (isWinner) {
+                            // Пульсация для победителя
+                            liftStrength = 0.8 + sin(DateTime.now().millisecondsSinceEpoch / 300) * 0.15;
+                            liftStrength = min(liftStrength, 1.0);
+                            needsHighlight = true;
+                          } else {
+                            // Убеждаемся, что не-победители не получают никакой подсветки
+                            liftStrength = 0;
+                            needsHighlight = false;
+                          }
                         }
                         
                         final currentLift = liftStrength * widget.maxLiftDistance;
@@ -285,12 +321,10 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                           y += directionY * currentLift;
                         }
                         
-                        final isWinner = _hasStopped && _winner?.id == widget.items[index].id;
-                        final isCurrentWinner = _isSpinning && _currentWinnerIndex == index;
-                        final segmentColor = segmentColors[index % segmentColors.length];
+                        final cardColor = _cardColors[index % _cardColors.length];
                         
                         return Positioned(
-                          key: ValueKey('${index}_${liftStrength.toStringAsFixed(2)}'),
+                          key: ValueKey('${index}_${_winner?.id ?? 'none'}_${liftStrength.toStringAsFixed(2)}'),
                           left: _radius + x - _cardWidth / 2,
                           top: _radius + y - _cardHeight / 2,
                           child: Transform.rotate(
@@ -303,9 +337,9 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                                 gradient: LinearGradient(
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
-                                  colors: (isWinner || isCurrentWinner || liftStrength > 0.7)
+                                  colors: needsHighlight
                                       ? [AppColors.secondary, AppColors.secondary.withOpacity(0.7)]
-                                      : [segmentColor, segmentColor.withOpacity(0.8)],
+                                      : [cardColor, cardColor.withOpacity(0.8)],
                                 ),
                                 borderRadius: BorderRadius.circular(24),
                                 boxShadow: [
@@ -316,7 +350,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                                   ),
                                 ],
                                 border: Border.all(
-                                  color: (isWinner || isCurrentWinner || liftStrength > 0.7) ? Colors.white : Colors.transparent,
+                                  color: needsHighlight ? Colors.white : Colors.transparent,
                                   width: liftStrength > 0.7 ? 3 : 2,
                                 ),
                               ),
@@ -340,7 +374,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                                         ),
                                       ),
                                     ),
-                                    if (isCurrentWinner || (isWinner && liftStrength > 0.7))
+                                    if (needsHighlight)
                                       Positioned(
                                         top: 8,
                                         right: 8,
@@ -360,11 +394,11 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                                             color: AppColors.textLight,
                                             fontSize: 14,
                                             fontWeight: FontWeight.w700,
-                                            shadows: liftStrength > 0.7 ? [
-                                              Shadow(
-                                                color: Colors.black.withOpacity(0.3),
+                                            shadows: needsHighlight ? [
+                                              const Shadow(
+                                                color: Colors.black26,
                                                 blurRadius: 4,
-                                                offset: const Offset(1, 1),
+                                                offset: Offset(1, 1),
                                               ),
                                             ] : null,
                                           ),
@@ -384,41 +418,14 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                   ),
                 ),
               ),
-              
-              // Центральная ось
-              Positioned(
-                left: centerX - 25,
-                top: 40 + _radius - 25,
-                child: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.secondary, width: 3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.casino,
-                    color: AppColors.secondary,
-                    size: 30,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
         
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         
-        // Индикатор текущего лидера
-        if ((_isSpinning || _hasStopped) && _currentWinnerIndex != null && !_showWinnerConfirmation)
+        // Индикатор текущего лидера (только во время вращения)
+        if (_isSpinning && _currentWinnerIndex != null)
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -471,7 +478,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
             duration: const Duration(milliseconds: 500),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 colors: [
                   Colors.amber,
                   Colors.orange,
@@ -517,14 +524,17 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
             ),
           ),
         
-        const SizedBox(height: 16),
+        const SizedBox(height: 2),
         
         Text(
           'Элементов: ${widget.items.length}',
-          style: AppTextStyles.bodySmall,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+          ),
         ),
         
-        const SizedBox(height: 24),
+        const SizedBox(height: 2),
         
         if (!_isSpinning && !_showWinnerConfirmation)
           Column(
@@ -535,19 +545,8 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                 backgroundColor: AppColors.secondary,
                 width: 200,
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Длительность: ${widget.spinDuration.inSeconds} сек',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
             ],
           ),
-        
-        if (_isSpinning || _showWinnerConfirmation)
-          const SizedBox(height: 56),
       ],
     );
   }
