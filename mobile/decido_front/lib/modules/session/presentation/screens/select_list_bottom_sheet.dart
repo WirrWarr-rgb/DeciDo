@@ -44,7 +44,7 @@ class _SelectListBottomSheetState extends ConsumerState<SelectListBottomSheet> {
     final items = _listRepository.getItemsByListId(list.id);
     
     final sessionList = SessionListModel(
-      id: list.id,
+       id: list.id.hashCode,
       name: list.name,
       isActive: true,
       items: items.map((item) => SessionListItemModel(

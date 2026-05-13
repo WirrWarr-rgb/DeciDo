@@ -83,16 +83,109 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         _updateSessionFromMessage(message.payload);
         break;
         
+      case WSMessageType.participantReady:
+        // Сразу обновляем UI для isReady
+        final userId = message.payload['user_id'];
+        if (userId != null && _session != null) {
+          final updatedParticipants = _session!.participants.map((p) {
+            if (p.userId == userId) {
+              return ParticipantModel(
+                userId: p.userId,
+                username: p.username,
+                status: p.status,
+                isReady: true,
+                hasVoted: p.hasVoted,
+                isOwner: p.isOwner,
+                invitedAt: p.invitedAt,
+                joinedAt: p.joinedAt,
+              );
+            }
+            return p;
+          }).toList();
+          
+          setState(() {
+            _session = SessionModel(
+              id: _session!.id,
+              ownerId: _session!.ownerId,
+              ownerName: _session!.ownerName,
+              status: _session!.status,
+              mode: _session!.mode,
+              listLocked: _session!.listLocked,
+              currentList: _session!.currentList,
+              participants: updatedParticipants,
+              votingDuration: _session!.votingDuration,
+              createdAt: _session!.createdAt,
+              votingEndsAt: _session!.votingEndsAt,
+              countdownEndsAt: _session!.countdownEndsAt,
+              results: _session!.results,
+              isOwner: _session!.isOwner,
+              canEditList: _session!.canEditList,
+              canStart: _session!.canStart,
+              canInvite: _session!.canInvite,
+              canLockList: _session!.canLockList,
+            );
+          });
+        }
+        _loadSession();
+        break;
+        
+      case WSMessageType.timerUpdated:
+        // Обновляем isReady для всех участников из timer_updated
+        final participantsList = message.payload['participants'];
+        if (participantsList != null && _session != null) {
+          final updatedParticipants = _session!.participants.map((p) {
+            final updated = (participantsList as List).firstWhere(
+              (json) => json['user_id'] == p.userId,
+              orElse: () => null,
+            );
+            if (updated != null) {
+              return ParticipantModel(
+                userId: p.userId,
+                username: p.username,
+                status: p.status,
+                isReady: updated['is_ready'] ?? p.isReady,
+                hasVoted: p.hasVoted,
+                isOwner: p.isOwner,
+                invitedAt: p.invitedAt,
+                joinedAt: p.joinedAt,
+              );
+            }
+            return p;
+          }).toList();
+          
+          setState(() {
+            _session = SessionModel(
+              id: _session!.id,
+              ownerId: _session!.ownerId,
+              ownerName: _session!.ownerName,
+              status: _session!.status,
+              mode: _session!.mode,
+              listLocked: _session!.listLocked,
+              currentList: _session!.currentList,
+              participants: updatedParticipants,
+              votingDuration: _session!.votingDuration,
+              createdAt: _session!.createdAt,
+              votingEndsAt: _session!.votingEndsAt,
+              countdownEndsAt: _session!.countdownEndsAt,
+              results: _session!.results,
+              isOwner: _session!.isOwner,
+              canEditList: _session!.canEditList,
+              canStart: _session!.canStart,
+              canInvite: _session!.canInvite,
+              canLockList: _session!.canLockList,
+            );
+          });
+        }
+        break;
+        
       case WSMessageType.participantJoined:
       case WSMessageType.participantLeft:
-      case WSMessageType.participantReady:
       case WSMessageType.participantKicked:
       case WSMessageType.listLocked:
       case WSMessageType.listUnlocked:
       case WSMessageType.listItemAdded:
       case WSMessageType.listItemUpdated:
       case WSMessageType.listItemDeleted:
-        // Обновляем состояние через загрузку с бэка
         _loadSession();
         break;
         
@@ -192,40 +285,49 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   void _startVoting() {
-    if (_isLoading) return;
-    if (_session == null) return;
-    if (!_session!.canStart) {
-      _showError('Не все участники готовы');
-      return;
-    }
-    print('Starting voting via WebSocket');
-    _webSocket.startVoting();
+  if (_isLoading) return;
+  if (_session == null) return;
+  
+  // Проверка на пустой список
+  final items = _session!.currentList?.items ?? [];
+  if (items.isEmpty) {
+    _showError('Добавьте хотя бы один элемент в список');
+    return;
   }
   
-  void _toggleReady() async {
-    if (_isLoading) return;
-    if (_session == null) return;
-    
-    final currentUserId = ref.read(authStateProvider)?.id;
-    if (currentUserId == null) return;
-    
-    final currentParticipant = _session!.participants.firstWhere(
-      (p) => p.userId == currentUserId,
-      orElse: () => _session!.participants.first,
-    );
-    
-    try {
-      if (currentParticipant.isReady) {
-        print('Unready');
-        _webSocket.unready();
-      } else {
-        print('Mark ready');
-        _webSocket.markReady();
-      }
-    } catch (e) {
-      print('Error toggling ready: $e');
-    }
+  if (!_session!.canStart) {
+    _showError('Не все участники готовы');
+    return;
   }
+  print('Starting voting via WebSocket');
+  _webSocket.startVoting();
+}
+  
+ Future<void> _toggleReady() async {
+  if (_isLoading) return;
+  if (_session == null) return;
+  
+  final currentUserId = ref.read(authStateProvider)?.id;
+  if (currentUserId == null) return;
+  
+  final currentParticipant = _session!.participants.firstWhere(
+    (p) => p.userId == currentUserId,
+    orElse: () => _session!.participants.first,
+  );
+  
+  try {
+    if (currentParticipant.isReady) {
+      await _repository.unmarkReady(widget.sessionId);
+    } else {
+      await _repository.markReady(widget.sessionId);
+    }
+    // Ждём немного и обновляем состояние
+    await Future.delayed(const Duration(milliseconds: 300));
+    await _loadSession();
+  } catch (e) {
+    _showError('Ошибка: $e');
+  }
+}
   
   String? _getCountdownText() {
     if (_session?.countdownEndsAt == null) return null;
