@@ -4,11 +4,13 @@ class FriendModel extends Equatable {
   final int id;
   final String username;
   final String email;
+  final bool isActive;
   
   const FriendModel({
     required this.id,
     required this.username,
     required this.email,
+    required this.isActive,
   });
   
   factory FriendModel.fromJson(Map<String, dynamic> json) {
@@ -16,6 +18,7 @@ class FriendModel extends Equatable {
       id: json['id'],
       username: json['username'],
       email: json['email'],
+      isActive: json['isActive'],
     );
   }
   

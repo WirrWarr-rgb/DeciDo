@@ -4,14 +4,17 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../list/repository/list_repository.dart';
 import '../../../list/models/list_model.dart';
+import '../../../list/models/list_item_model.dart';
 import '../../models/session_models.dart';
 
 class SelectListBottomSheet extends ConsumerStatefulWidget {
-  final Function(SessionListModel, String) onSelectList;  // Добавляем оригинальный ID
+  final Function(SessionListModel, String) onSelectList;
+  final VoidCallback onClose;
 
   const SelectListBottomSheet({
     super.key,
     required this.onSelectList,
+    required this.onClose,
   });
 
   @override
@@ -36,17 +39,16 @@ class _SelectListBottomSheetState extends ConsumerState<SelectListBottomSheet> {
     });
   }
 
+
   void _selectList(ListModel list) {
-    // Получаем элементы списка
     final items = _listRepository.getItemsByListId(list.id);
     
-    // Создаем SessionListModel для отображения
     final sessionList = SessionListModel(
-      id: list.id.hashCode,
+      id: list.id,
       name: list.name,
       isActive: true,
       items: items.map((item) => SessionListItemModel(
-        id: item.id.hashCode,
+        id: list.id.hashCode,  // item.id теперь String
         name: item.name,
         description: item.description,
         imageUrl: item.imageUrl,
@@ -55,91 +57,100 @@ class _SelectListBottomSheetState extends ConsumerState<SelectListBottomSheet> {
       createdAt: list.createdAt,
     );
     
-    // Передаём и SessionListModel, и оригинальный ID
     widget.onSelectList(sessionList, list.id);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 257,
+        constraints: BoxConstraints(
+          maxHeight: 300,
+        ),
+        decoration: ShapeDecoration(
+          color: AppColors.secondary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(5),
           ),
-          Text(
-            'Выберите список',
-            style: AppTextStyles.headlineMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Divider(color: Colors.grey.shade200),
-          const SizedBox(height: 8),
-          
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (_lists.isEmpty)
-            Center(
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
-                  Icon(Icons.list_alt, size: 48, color: Colors.grey),
-                  const SizedBox(height: 8),
-                  Text(
-                    'У вас нет списков',
-                    style: AppTextStyles.bodyMedium,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: _isLoading
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
                   ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Закрыть'),
-                  ),
-                ],
-              ),
-            )
-          else
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _lists.length,
-                itemBuilder: (context, index) {
-                  final list = _lists[index];
-                  final itemsCount = _listRepository.getItemsByListId(list.id).length;
-                  
-                  return ListTile(
-                    leading: Icon(
-                      Icons.list,
-                      color: AppColors.primary,
+                )
+              : _lists.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.list_alt, size: 32, color: AppColors.textLight),
+                          const SizedBox(height: 8),
+                          Text(
+                            'У вас нет списков',
+                            style: TextStyle(
+                              color: AppColors.textLight,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _lists.length,
+                      itemBuilder: (context, index) {
+                        final list = _lists[index];
+                        final itemsCount = _listRepository.getItemsByListId(list.id).length;
+                        
+                        return GestureDetector(
+                          onTap: () => _selectList(list),
+                          child: Container(
+                            width: 247,
+                            margin: const EdgeInsets.all(5),
+                            decoration: ShapeDecoration(
+                              color: AppColors.background,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              title: Text(
+                                list.name,
+                                style: TextStyle(
+                                  color: AppColors.secondary,
+                                  fontSize: 16,
+                                  fontFamily: 'Instrument Sans',
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '$itemsCount элементов',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                  fontFamily: 'Instrument Sans',
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              trailing: const Icon(
+                                Icons.chevron_right,
+                                color: AppColors.secondary,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    title: Text(
-                      list.name,
-                      style: AppTextStyles.bodyLarge,
-                    ),
-                    subtitle: Text(
-                      '$itemsCount элементов',
-                      style: AppTextStyles.bodySmall,
-                    ),
-                    trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                    onTap: () => _selectList(list),
-                  );
-                },
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }

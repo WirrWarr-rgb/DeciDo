@@ -2,19 +2,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../config/app_config.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../shared/widgets/custom_app_bar.dart';
 import '../../../shared/widgets/custom_button.dart';
-import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../providers/session_providers.dart';
 import '../../repository/i_session_repository.dart';
 import '../../services/websocket_service.dart';
 import '../../models/session_models.dart';
 import 'select_friends_screen.dart';
-import 'item_edit_bottom_sheet.dart';
+import 'session_item_edit_bottom_sheet.dart';
 import '../../../auth/providers/auth_state_provider.dart';
 
 class SessionScreen extends ConsumerStatefulWidget {
@@ -36,29 +34,29 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   bool _isNavigating = false;
   Timer? _pollTimer;
   bool _hasInitialLoad = false;
+  
+  final ScrollController _participantsScrollController = ScrollController();
+  int? _editingItemIndex;
+  final double shiftDistance = 60;
 
   @override
   void initState() {
     super.initState();
-    print('🟢 SessionScreen initState, sessionId=${widget.sessionId}');
     _repository = ref.read(sessionRepositoryProvider);
     _webSocket = WebSocketService.instance;
     _initWebSocket();
   
     if (_webSocket.currentSessionId != widget.sessionId || !_webSocket.isConnected) {
-      print('🟢 Connecting to session WebSocket...');
       _webSocket.connect(widget.sessionId);
-    } else {
-      print('🟢 Already connected to session ${widget.sessionId}');
     }
 
-    // Загружаем начальное состояние через HTTP с таймаутом
     _loadSessionWithTimeout();
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _participantsScrollController.dispose();
     _webSocket.removeListener(_handleWebSocketMessage);
     super.dispose();
   }
@@ -68,22 +66,16 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   Future<void> _loadSessionWithTimeout() async {
-    // Ждем ответа от WebSocket 3 секунды
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted && !_hasInitialLoad && _session == null) {
-        print('⚠️ WebSocket timeout, loading via HTTP');
         _loadSession();
       }
     });
-    
-    // Загружаем через HTTP сразу для быстрого отображения
     await _loadSession();
   }
 
   void _handleWebSocketMessage(WSMessage message) {
     if (!mounted) return;
-    
-    print('🔔 WebSocket message received: ${message.type}');
     
     switch (message.type) {
       case WSMessageType.stateChanged:
@@ -94,32 +86,20 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       case WSMessageType.participantJoined:
       case WSMessageType.participantLeft:
       case WSMessageType.participantReady:
+      case WSMessageType.participantKicked:
       case WSMessageType.listLocked:
       case WSMessageType.listUnlocked:
       case WSMessageType.listItemAdded:
       case WSMessageType.listItemUpdated:
       case WSMessageType.listItemDeleted:
-      case WSMessageType.timerUpdated:
-        // Обновляем только при необходимости
-        if (_session != null) {
-          _loadSession(); // Пока оставляем полную перезагрузку
-        }
+        // Обновляем состояние через загрузку с бэка
+        _loadSession();
         break;
         
       case WSMessageType.votingStarted:
-        print('Voting started, navigating to ranking screen');
         if (!_isNavigating && mounted) {
           _isNavigating = true;
           context.go('/session/${widget.sessionId}/ranking');
-        }
-        break;
-        
-      case WSMessageType.userVoted:
-        // Показываем уведомление, но не перезагружаем
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${message.payload['username']} проголосовал')),
-          );
         }
         break;
         
@@ -148,7 +128,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   void _updateSessionFromMessage(Map<String, dynamic> payload) {
     setState(() {
-      // Обновляем состояние из WebSocket сообщения
       _session = SessionModel.fromJson(payload);
       _isLoading = false;
       _errorMessage = null;
@@ -162,47 +141,21 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       final session = await _repository.getLobby(widget.sessionId);
       if (!mounted) return;
       
-      // Проверяем, нужно ли принять приглашение
       final currentUserId = ref.read(authStateProvider)?.id;
       final myPart = session.participants.firstWhere(
         (p) => p.userId == currentUserId,
         orElse: () => session.participants.first,
       );
 
-      // Обработка приглашения - НЕ переподключаем WebSocket
       if (myPart.status == ParticipantStatus.invited) {
         await _repository.acceptInvite(widget.sessionId);
-        // WebSocket уже подключен, просто ждем обновления
         await Future.delayed(const Duration(milliseconds: 300));
         _loadSession();
         return;
       }
 
       setState(() {
-        if (session.isOwner && (session.status == SessionStatus.waiting || session.status == SessionStatus.editing)) {
-          _session = SessionModel(
-            id: session.id,
-            ownerId: session.ownerId,
-            ownerName: session.ownerName,
-            status: session.status,
-            mode: session.mode,
-            listLocked: session.listLocked,
-            currentList: session.currentList,
-            participants: session.participants,
-            votingDuration: session.votingDuration,
-            createdAt: session.createdAt,
-            votingEndsAt: session.votingEndsAt,
-            countdownEndsAt: session.countdownEndsAt,
-            results: session.results,
-            isOwner: session.isOwner,
-            canEditList: true,
-            canStart: session.canStart,
-            canInvite: session.canInvite,
-            canLockList: session.canLockList,
-          );
-        } else {
-          _session = session;
-        }
+        _session = session;
         _isLoading = false;
         _errorMessage = null;
         _hasInitialLoad = true;
@@ -216,22 +169,37 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
   }
 
+  void _scrollParticipantsLeft() {
+    if (_participantsScrollController.hasClients) {
+      final newOffset = _participantsScrollController.offset - 320;
+      _participantsScrollController.animateTo(
+        newOffset.clamp(0.0, _participantsScrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _scrollParticipantsRight() {
+    if (_participantsScrollController.hasClients) {
+      final newOffset = _participantsScrollController.offset + 320;
+      _participantsScrollController.animateTo(
+        newOffset.clamp(0.0, _participantsScrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   void _startVoting() {
     if (_isLoading) return;
     if (_session == null) return;
-    print('Starting voting');
-    _webSocket.startVoting();
-
-    // Для мок-режима сразу переходим
-    if (AppConfig.useMocks) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted && !_isNavigating) {
-          _isNavigating = true;
-          context.go('/session/${widget.sessionId}/ranking');
-        }
-      });
+    if (!_session!.canStart) {
+      _showError('Не все участники готовы');
       return;
     }
+    print('Starting voting via WebSocket');
+    _webSocket.startVoting();
   }
   
   void _toggleReady() async {
@@ -248,11 +216,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     
     try {
       if (currentParticipant.isReady) {
+        print('Unready');
         _webSocket.unready();
       } else {
+        print('Mark ready');
         _webSocket.markReady();
       }
-      // Не загружаем сразу, ждем WebSocket обновления
     } catch (e) {
       print('Error toggling ready: $e');
     }
@@ -269,157 +238,214 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     return '$minutes:${secs.toString().padLeft(2, '0')}';
   }
 
-  void _inviteFriends() async {
-    if (_isLoading) return;
-    final result = await context.push<List<int>>('/select-friends?mode=invite');
-    if (result != null && result.isNotEmpty && mounted) {
-      await _repository.inviteFriends(widget.sessionId, result);
-      // Ждем WebSocket обновления
-    }
-  }
-
-  void _kickParticipant(int userId, String username) {
-    if (_isLoading) return;
+  void _showKickDialog(int userId, String username) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Выгнать участника'),
-        content: Text('Вы уверены, что хотите выгнать $username из лобби?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 350,
+          padding: const EdgeInsets.all(20),
+          decoration: ShapeDecoration(
+            color: AppColors.background,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
           ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _repository.kickParticipant(widget.sessionId, userId);
-              // Ждем WebSocket обновления
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Выгнать'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                username,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontFamily: 'Instrument Sans',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Вы уверены, что хотите выгнать $username?',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 16,
+                  fontFamily: 'Instrument Sans',
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        height: 40,
+                        decoration: ShapeDecoration(
+                          shape: RoundedRectangleBorder(
+                            side: const BorderSide(
+                              width: 2,
+                              color: AppColors.textSecondary,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Нет, отменить',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await _repository.kickParticipant(widget.sessionId, userId);
+                        _loadSession();
+                      },
+                      child: Container(
+                        height: 40,
+                        decoration: ShapeDecoration(
+                          color: AppColors.secondary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Да, выгнать',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   void _toggleListLock() async {
     if (_isLoading) return;
+    if (!_session!.canLockList) return;
     if (_session!.listLocked) {
+      print('Unlocking list');
       await _repository.unlockList(widget.sessionId);
     } else {
+      print('Locking list');
       await _repository.lockList(widget.sessionId);
     }
     // Ждем WebSocket обновления
   }
 
-  void _addItem() {
-    if (_isLoading) return;
-    if (_session!.listLocked && !_session!.isOwner) {
-      _showError('Список заблокирован владельцем');
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ItemEditBottomSheet(
-        isNew: true,
-        onSave: (name, description, imageUrl) {
-          _webSocket.addItem(name, description: description, imageUrl: imageUrl);
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  void _editItem(SessionListItemModel item) {
-    if (_isLoading) return;
-    if (_session!.listLocked && !_session!.isOwner) {
-      _showError('Список заблокирован владельцем');
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ItemEditBottomSheet(
-        item: item,
-        isNew: false,
-        onSave: (name, description, imageUrl) {
-          _webSocket.updateItem(item.id, name: name, description: description, imageUrl: imageUrl);
-          Navigator.pop(context);
-        },
-        onDelete: () {
-          _webSocket.deleteItem(item.id);
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  void _deleteItem(SessionListItemModel item) {
-    if (_isLoading) return;
-    if (_session!.listLocked && !_session!.isOwner) {
+  void _addNewItem() {
+    if (_session!.currentList == null) return;
+    if (_session!.listLocked && !_session!.canEditList) {
       _showError('Список заблокирован владельцем');
       return;
     }
     
-    showDialog(
+    print('Adding new item');
+    _webSocket.addItem('Новый элемент');
+  }
+
+  void _editItem(SessionListItemModel item, int index) {
+    if (_session!.listLocked && !_session!.canEditList) {
+      _showError('Список заблокирован владельцем');
+      return;
+    }
+    
+    setState(() {
+      _editingItemIndex = index;
+    });
+    
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить элемент'),
-        content: Text('Вы уверены, что хотите удалить "${item.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
-              _webSocket.deleteItem(item.id);
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Удалить'),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SessionItemEditBottomSheet(
+        item: item,
+        onSave: (name, description, imageUrl) {
+          print('Updating item: ${item.id}, name: $name');
+          _webSocket.updateItem(item.id, name: name, description: description);
+          setState(() {
+            _editingItemIndex = null;
+          });
+          Navigator.pop(context);
+        },
+        onClose: () {
+          setState(() {
+            _editingItemIndex = null;
+          });
+        },
       ),
-    );
+    ).then((_) {
+      if (mounted) {
+        setState(() {
+          _editingItemIndex = null;
+        });
+      }
+    });
+  }
+
+  void _deleteItem(SessionListItemModel item) {
+    if (_session!.listLocked && !_session!.canEditList) {
+      _showError('Список заблокирован владельцем');
+      return;
+    }
+    
+    print('Deleting item: ${item.id}');
+    _webSocket.deleteItem(item.id);
+  }
+
+  double _getItemOffset(int index, int? editingIndex) {
+    if (editingIndex == null) return 0;
+    final diff = (index - editingIndex).abs();
+    if (diff == 0) return -shiftDistance;
+    if (diff == 1) return -(shiftDistance * 0.5);
+    if (diff == 2) return -(shiftDistance * 0.25);
+    return 0;
+  }
+
+  void _inviteFriends() async {
+    if (_isLoading) return;
+    if (!_session!.canInvite) return;
+    final result = await context.push<List<int>>('/select-friends?mode=invite');
+    if (result != null && result.isNotEmpty && mounted) {
+      await _repository.inviteFriends(widget.sessionId, result);
+      _loadSession();
+    }
   }
 
   void _leaveLobby() {
-    if (_isLoading) return;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(_session!.isOwner ? 'Закрыть лобби' : 'Покинуть лобби'),
-        content: Text(_session!.isOwner
-            ? 'Вы уверены, что хотите закрыть лобби? Все участники будут удалены.'
-            : 'Вы уверены, что хотите покинуть лобби?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (_session!.isOwner) {
-                _webSocket.closeLobby();
-              } else {
-                _webSocket.leaveLobby();
-              }
-              if (mounted) {
-                context.go('/home');
-              }
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text(_session!.isOwner ? 'Закрыть' : 'Покинуть'),
-          ),
-        ],
-      ),
-    );
+    if (_session!.isOwner) {
+      // Хост закрывает лобби
+      _webSocket.closeLobby();
+    } else {
+      // Участник покидает лобби
+      _webSocket.leaveLobby();
+    }
+    if (mounted) {
+      context.go('/home');
+    }
   }
 
   void _showError(String message) {
@@ -437,20 +463,29 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     if (_errorMessage != null || _session == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Лобби')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(_errorMessage ?? 'Лобби не найдено'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => context.go('/home'),
-                child: const Text('На главную'),
-              ),
-            ],
+        body: Container(
+          width: 412,
+          height: 892,
+          decoration: const ShapeDecoration(
+            color: AppColors.background,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(_errorMessage ?? 'Лобби не найдено'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => context.go('/home'),
+                  child: const Text('На главную'),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -461,286 +496,558 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final items = activeList?.items ?? [];
     
     final allParticipants = session.participants
-        .where((p) => p.status == ParticipantStatus.accepted || p.status == ParticipantStatus.invited)
+        .where((p) => p.status == ParticipantStatus.accepted)
         .toList();
     final regularParticipants = allParticipants.where((p) => !p.isOwner).toList();
     final readyCount = regularParticipants.where((p) => p.isReady).length;
     final totalRegular = regularParticipants.length;
+    
+    final currentUserId = ref.read(authStateProvider)?.id;
+    final myPart = session.participants.firstWhere(
+      (p) => p.userId == currentUserId,
+      orElse: () => session.participants.first,
+    );
 
-    return CustomScaffold(
-      title: activeList?.name ?? 'Лобби #${session.id}',
-      showBackButton: true,
-      menuIconColor: AppColors.textPrimary,
-      actions: [
-        if (session.isOwner)
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: _inviteFriends,
-          ),
-        if (session.isOwner)
-          IconButton(
-            icon: Icon(session.listLocked ? Icons.lock : Icons.lock_open),
-            onPressed: _toggleListLock,
-          ),
-        IconButton(
-          icon: const Icon(Icons.logout),
-          onPressed: _leaveLobby,
-        ),
-      ],
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Участники
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
+    return Scaffold(
+      body: Stack(
+        children: [
+          Container(
+            width: 412,
+            height: 892,
+            decoration: const ShapeDecoration(
+              color: AppColors.background,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Участники (${allParticipants.length})',
-                        style: AppTextStyles.headlineSmall,
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            ),
+            child: Stack(
+              children: [
+                // Кнопка назад
+                Positioned(
+                  left: 10,
+                  top: 52,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                    onPressed: () => context.pop(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+                
+                // Заголовок
+                Positioned(
+                  left: 60,
+                  top: 52,
+                  child: Text(
+                    session.status == SessionStatus.voting ? 'Голосование' : 'Подготовка',
+                    style: AppTextStyles.headlineMedium.copyWith(
+                      color: AppColors.textPrimary,
+                      fontSize: 24,
+                      height: 1.67,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                
+                // Горизонтальный список участников с кнопкой добавления в конце
+                Positioned(
+                  left: 41,
+                  top: 100,
+                  child: SizedBox(
+                    width: 330,
+                    height: 120,
+                    child: _buildParticipantsList(allParticipants, session.isOwner, session.canInvite),
+                  ),
+                ),
+                
+                // Стрелка влево для участников
+                if (allParticipants.length + 1 > 4)
+                  Positioned(
+                    left: 10,
+                    top: 145,
+                    child: GestureDetector(
+                      onTap: _scrollParticipantsLeft,
+                      child: Container(
+                        width: 31,
+                        height: 31,
                         decoration: BoxDecoration(
-                          color: readyCount == totalRegular && totalRegular > 0
-                              ? Colors.green.withOpacity(0.2)
-                              : Colors.orange.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.inputBackground.withOpacity(0.5),
+                          shape: BoxShape.circle,
                         ),
-                        child: Text(
-                          'Готовы: $readyCount / $totalRegular',
+                        child: const Icon(Icons.chevron_left, color: AppColors.textPrimary, size: 20),
+                      ),
+                    ),
+                  ),
+                
+                // Стрелка вправо для участников
+                if (allParticipants.length + 1 > 4)
+                  Positioned(
+                    left: 371,
+                    top: 145,
+                    child: GestureDetector(
+                      onTap: _scrollParticipantsRight,
+                      child: Container(
+                        width: 31,
+                        height: 31,
+                        decoration: BoxDecoration(
+                          color: AppColors.inputBackground.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.chevron_right, color: AppColors.textPrimary, size: 20),
+                      ),
+                    ),
+                  ),
+                
+                // Счетчик элементов списка (исправлено!)
+                Positioned(
+                  left: 102,
+                  top: 248,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Элементов в списке ',
                           style: TextStyle(
-                            color: readyCount == totalRegular && totalRegular > 0
-                                ? Colors.green
-                                : Colors.orange,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
+                            color: AppColors.textPrimary,
+                            fontSize: 20,
+                            fontFamily: 'Instrument Sans',
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
+                        TextSpan(
+                          text: '${items.length}/20',
+                          style: TextStyle(
+                            color: AppColors.secondary,
+                            fontSize: 20,
+                            fontFamily: 'Instrument Sans',
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Таймер обратного отсчета
+                if (_getCountdownText() != null && session.status == SessionStatus.ready)
+                  Positioned(
+                    right: 30,
+                    top: 248,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      if (_session?.countdownEndsAt != null && _session?.status == SessionStatus.ready)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade100,
+                      child: Row(
+                        children: [
+                          Icon(Icons.timer, size: 16, color: Colors.blue.shade700),
+                          const SizedBox(width: 4),
+                          Text(
+                            _getCountdownText()!,
+                            style: TextStyle(
+                              color: Colors.blue.shade700,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                
+                // Название списка с замком (обновляется через WebSocket)
+                Positioned(
+                  left: 78,
+                  top: 281,
+                  child: Container(
+                    width: 257,
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
+                    decoration: ShapeDecoration(
+                      color: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            activeList?.name ?? 'Список',
+                            style: TextStyle(
+                              color: AppColors.textLight,
+                              fontSize: 16,
+                              fontFamily: 'Instrument Sans',
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (session.canLockList)
+                          IconButton(
+                            icon: Icon(
+                              session.listLocked ? Icons.lock : Icons.lock_open,
+                              color: AppColors.textLight,
+                              size: 20,
+                            ),
+                            onPressed: _toggleListLock,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Кнопка добавления элемента (как элемент списка)
+                if (session.canEditList && !session.listLocked)
+                  Positioned(
+                    left: 25,
+                    top: 365,
+                    child: GestureDetector(
+                      onTap: _addNewItem,
+                      child: Container(
+                        width: 368,
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+                        decoration: ShapeDecoration(
+                          color: AppColors.secondary,
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.timer, size: 14, color: Colors.blue.shade700),
-                              const SizedBox(width: 4),
-                              Text(
-                                _getCountdownText() ?? '',
-                                style: TextStyle(
-                                  color: Colors.blue.shade700,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 12,
-                                ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.add, color: AppColors.textLight, size: 25),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Добавить новый элемент',
+                              style: TextStyle(
+                                color: AppColors.textLight,
+                                fontSize: 18,
+                                fontFamily: 'Instrument Sans',
+                                fontWeight: FontWeight.w500,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                    ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: allParticipants.map((p) {
-                      return Chip(
-                        label: Text(p.username),
-                        avatar: CircleAvatar(
-                          radius: 14,
-                          backgroundColor: p.isOwner ? AppColors.secondary : AppColors.primary,
-                          child: Text(
-                            p.username[0].toUpperCase(),
-                            style: const TextStyle(fontSize: 10, color: Colors.white),
+                
+                // Список элементов
+                Positioned(
+                  left: 25,
+                  top: session.canEditList && !session.listLocked ? 430 : 365,
+                  child: Container(
+                    width: 512,
+                    height: session.canEditList && !session.listLocked ? 280 : 340,
+                    child: items.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.format_list_bulleted, size: 64, color: Colors.grey),
+                                const SizedBox(height: 16),
+                                const Text('Список пуст'),
+                                const SizedBox(height: 16),
+                                if (session.canEditList && !session.listLocked)
+                                  ElevatedButton(
+                                    onPressed: _addNewItem,
+                                    child: const Text('Добавить первый элемент'),
+                                  ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: items.length,
+                            itemBuilder: (context, index) {
+                              final item = items[index];
+                              final offset = _getItemOffset(index, _editingItemIndex);
+                              final isEven = index % 2 == 0;
+                              
+                              return AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                                transform: Matrix4.translationValues(offset, 0, 0),
+                                child: Container(
+                                  height: 48,
+                                  margin: EdgeInsets.zero,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      // Иконка удаления (удаляет сразу, без диалога)
+                                      if (session.canEditList && !session.listLocked)
+                                        SizedBox(
+                                          width: 35,
+                                          child: GestureDetector(
+                                            onTap: () => _deleteItem(item),
+                                            child: SvgPicture.asset(
+                                              'assets/icons/delete_bin_icon.svg',
+                                              colorFilter: isEven 
+                                                  ? const ColorFilter.mode(
+                                                      AppColors.inputBackground,
+                                                      BlendMode.srcIn,
+                                                    )
+                                                  : const ColorFilter.mode(
+                                                      AppColors.primary,
+                                                      BlendMode.srcIn,
+                                                    ),
+                                              width: 35,
+                                              height: 35,
+                                            ),
+                                          ),
+                                        ),
+                                      
+                                      if (session.canEditList && !session.listLocked) 
+                                        const SizedBox(width: 21),
+                                      
+                                      // Задний план (кликабельный для редактирования)
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: (session.canEditList && !session.listLocked) 
+                                              ? () => _editItem(item, index) 
+                                              : null,
+                                          child: Container(
+                                            height: 48,
+                                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+                                            decoration: ShapeDecoration(
+                                              color: isEven ? AppColors.inputBackground : AppColors.primary,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              item.name,
+                                              style: TextStyle(
+                                                color: isEven ? AppColors.textPrimary : AppColors.textLight,
+                                                fontSize: 20,
+                                                fontFamily: 'Instrument Sans',
+                                                fontWeight: FontWeight.w500,
+                                                height: 1.10,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ),
+                
+                // Кнопка "НАЧАТЬ" (только для хоста)
+                if (session.isOwner && session.status != SessionStatus.voting)
+                  Positioned(
+                    left: 141,
+                    bottom: 100,
+                    child: CustomButton(
+                      text: 'НАЧАТЬ',
+                      onPressed: _startVoting,
+                      width: 130,
+                      fontSize: 16,
+                      backgroundColor: session.canStart ? AppColors.secondary : AppColors.textSecondary,
+                      textColor: AppColors.textPrimary,
+                    ),
+                  ),
+                
+                // Кнопка "Я ГОТОВ"/"НЕ ГОТОВ" (только для не-хоста)
+                if (!session.isOwner && session.status != SessionStatus.voting)
+                  Positioned(
+                    left: 141,
+                    bottom: 100,
+                    child: CustomButton(
+                      text: myPart.isReady ? 'НЕ ГОТОВ' : 'Я ГОТОВ',
+                      onPressed: _toggleReady,
+                      width: 130,
+                      fontSize: 16,
+                      backgroundColor: AppColors.secondary,
+                      textColor: AppColors.textPrimary,
+                    ),
+                  ),
+                
+                // Кнопка выхода (закрывает лобби для хоста, покидает для участника)
+                Positioned(
+                  right: 39,
+                  bottom: 30,
+                  child: CustomButton(
+                    text: session.isOwner ? 'ЗАКРЫТЬ ЛОББИ' : 'ПОКИНУТЬ ЛОББИ',
+                    onPressed: _leaveLobby,
+                    width: 130,
+                    fontSize: 14,
+                    backgroundColor: AppColors.secondary,
+                    textColor: AppColors.textPrimary,
+                  ),
+                ),
+                
+                // Индикатор голосования
+                if (session.status == SessionStatus.voting)
+                  Positioned(
+                    left: 141,
+                    bottom: 30,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        myPart.hasVoted ? 'ВЫ ПРОГОЛОСОВАЛИ' : 'ИДЕТ ГОЛОСОВАНИЕ...',
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          
+          // Затемнение при открытом bottom sheet редактирования
+          if (_editingItemIndex != null)
+            Container(
+              width: 412,
+              height: 892,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.tertiary.withOpacity(0.7),
+                    AppColors.secondary.withOpacity(0.7),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildParticipantsList(List<ParticipantModel> participants, bool isOwner, bool canInvite) {
+    return SingleChildScrollView(
+      controller: _participantsScrollController,
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          ...participants.map((p) {
+            Color avatarColor;
+            String statusText;
+            
+            if (p.isOwner) {
+              avatarColor = AppColors.secondary;
+              statusText = 'Хост';
+            } else if (p.hasVoted) {
+              avatarColor = Colors.purple;
+              statusText = 'Проголосовал';
+            } else if (p.isReady) {
+              avatarColor = Colors.green;
+              statusText = 'ГОТОВ';
+            } else {
+              avatarColor = AppColors.tertiary;
+              statusText = '...';
+            }
+            
+            return Container(
+              width: 65,
+              margin: const EdgeInsets.only(right: 19),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 65,
+                    child: Text(
+                      p.username.length > 7 ? '${p.username.substring(0, 6)}.' : p.username,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 14,
+                        fontFamily: 'Instrument Sans',
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: (isOwner && !p.isOwner && !p.hasVoted && _session?.status != SessionStatus.voting) 
+                        ? () => _showKickDialog(p.userId, p.username) 
+                        : null,
+                    child: Container(
+                      width: 65,
+                      height: 65,
+                      decoration: BoxDecoration(
+                        color: avatarColor,
+                        shape: BoxShape.circle,
+                        border: p.isReady ? Border.all(color: AppColors.primary, width: 3) : null,
+                      ),
+                      child: Center(
+                        child: Text(
+                          p.username[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                        backgroundColor: p.isReady && !p.isOwner ? Colors.green.withOpacity(0.2) : null,
-                        deleteIcon: session.isOwner && !p.isOwner
-                            ? const Icon(Icons.close, size: 16, color: Colors.red)
-                            : null,
-                        onDeleted: session.isOwner && !p.isOwner
-                            ? () => _kickParticipant(p.userId, p.username)
-                            : null,
-                      );
-                    }).toList(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    statusText,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: p.isReady ? Colors.green : AppColors.primary,
+                      fontSize: 12,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          
+          // Кнопка добавления друзей (последний элемент)
+          if (canInvite)
+            Container(
+              width: 65,
+              margin: const EdgeInsets.only(right: 19),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: _inviteFriends,
+                    child: Container(
+                      width: 65,
+                      height: 65,
+                      decoration: const BoxDecoration(
+                        color: AppColors.secondary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.add, color: Colors.white, size: 30),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            
-            const SizedBox(height: 16),
-            
-            // Кнопки
-            if (session.isOwner) ...[
-              CustomButton(
-                text: session.participants.firstWhere((p) => p.isOwner).isReady ? 'Не готов' : 'Готов',
-                onPressed: _toggleReady,
-                backgroundColor: session.participants.firstWhere((p) => p.isOwner).isReady ? Colors.orange : AppColors.primary,
-              ),
-              const SizedBox(height: 8),
-              CustomButton(
-                text: 'Начать голосование',
-                onPressed: _startVoting,
-                backgroundColor: AppColors.secondary,
-              ),
-            ] else ...[
-              Builder(
-                builder: (context) {
-                  final myPart = session.participants.firstWhere(
-                    (p) => p.userId == ref.read(authStateProvider)?.id,
-                    orElse: () => session.participants.first,
-                  );
-                  return CustomButton(
-                    text: myPart.isReady ? 'Не готов' : 'Готов',
-                    onPressed: _toggleReady,
-                    backgroundColor: myPart.isReady ? Colors.orange : AppColors.primary,
-                  );
-                },
-              ),
-            ],
-            
-            // Список элементов
-            if (items.isNotEmpty || (session.canEditList || session.isOwner))
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Список для голосования:',
-                            style: AppTextStyles.headlineSmall,
-                          ),
-                          if ((session.canEditList  && !session.listLocked) || session.isOwner)
-                            IconButton(
-                              icon: const Icon(Icons.add, size: 20),
-                              onPressed: _addItem,
-                              tooltip: 'Добавить элемент',
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      if (session.listLocked)
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.lock, size: 16, color: Colors.orange.shade700),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Список заблокирован. Редактирование недоступно.',
-                                  style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      Expanded(
-                        child: items.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'Список пуст',
-                                  style: AppTextStyles.bodyMedium.copyWith(color: Colors.grey),
-                                ),
-                              )
-                            : ListView.separated(
-                                itemCount: items.length,
-                                separatorBuilder: (_, __) => const Divider(),
-                                itemBuilder: (context, index) {
-                                  final item = items[index];
-                                  return ListTile(
-                                    leading: CircleAvatar(
-                                      radius: 14,
-                                      backgroundColor: AppColors.primary.withOpacity(0.2),
-                                      child: Text(
-                                        '${index + 1}',
-                                        style: TextStyle(color: AppColors.primary, fontSize: 12),
-                                      ),
-                                    ),
-                                    title: Text(
-                                      item.name,
-                                      style: AppTextStyles.bodyLarge,
-                                    ),
-                                    subtitle: item.description != null
-                                        ? Text(
-                                            item.description!,
-                                            style: AppTextStyles.bodySmall,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          )
-                                        : null,
-                                    trailing: ((session.canEditList  && !session.listLocked) || session.isOwner)
-                                        ? Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(Icons.edit, size: 18),
-                                                onPressed: () => _editItem(item),
-                                              ),
-                                              IconButton(
-                                                icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                                                onPressed: () => _deleteItem(item),
-                                              ),
-                                            ],
-                                          )
-                                        : null,
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            
-            if (items.isEmpty)
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Список пуст',
-                      style: AppTextStyles.bodyMedium.copyWith(color: Colors.grey),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }

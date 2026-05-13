@@ -127,7 +127,7 @@ class SessionListItemModel extends Equatable {
 }
 
 class SessionListModel extends Equatable {
-  final int id;
+  final String id;
   final String name;
   final bool isActive;
   final List<SessionListItemModel> items;
