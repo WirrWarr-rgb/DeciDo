@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../models/random_item_model.dart';
 import 'select_random_list_screen.dart';
 
@@ -20,93 +20,155 @@ class RandomResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomScaffold(
-      title: 'Результат',
-      showBackButton: true,
-      menuIconColor: AppColors.textPrimary,
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      title: "Иии...Вот итог!",
+      body: Container(
+        width: 412,
+        height: 892,
+        decoration: ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+        child: Stack(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.secondary.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '🏆 ПОБЕДИТЕЛЬ 🏆',
-                style: TextStyle(
-                  color: AppColors.secondary,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
             
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.secondary,
-                    AppColors.secondary.withOpacity(0.7),
-                  ],
+            // Карточка победителя
+            Positioned(
+              left: 51,
+              top: 111,
+              child: Container(
+                width: 310,
+                height: 640,
+                clipBehavior: Clip.antiAlias,
+                decoration: ShapeDecoration(
+                  color: AppColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.secondary.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.emoji_events,
-                    size: 64,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    winner.name,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (winner.description != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(
-                        winner.description!,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.white70,
+                child: Stack(
+                  children: [
+                    // Место для изображения (заглушка)
+                    Positioned(
+                      left: 0,
+                      top: -1,
+                      child: Container(
+                        width: 310,
+                        height: 425,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(color: Colors.white),
+                        child: Container(
+                          width: 310,
+                          height: 425,
+                          color: AppColors.tertiary,
+                          child: Center(
+                            child: Icon(
+                              Icons.image,
+                              size: 80,
+                              color: AppColors.textLight.withOpacity(0.5),
+                            ),
+                          ),
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ),
-                ],
+                    
+                    // Градиент поверх изображения
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      child: Container(
+                        width: 310,
+                        height: 424,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              AppColors.primary.withOpacity(0),
+                              AppColors.primary,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Название победителя
+                    Positioned(
+                      left: 40,
+                      top: 367,
+                      child: SizedBox(
+                        width: 229,
+                        child: Text(
+                          winner.name,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textLight,
+                            fontSize: 24,
+                            fontFamily: 'Instrument Sans',
+                            fontWeight: FontWeight.w700,
+                            height: 0.63,
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Белая карточка для описания
+                    Positioned(
+                      left: 20,
+                      top: 430,
+                      child: Container(
+                        width: 270,
+                        height: 190,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: ShapeDecoration(
+                          color: AppColors.background,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(21),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Описание
+                    Positioned(
+                      left: 27,
+                      top: 433,
+                      child: Container(
+                        width: 256,
+                        height: 181,
+                        padding: const EdgeInsets.all(12),
+                        child: SingleChildScrollView(
+                          child: Text(
+                            winner.description ?? 'Нет описания',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              fontFamily: 'Instrument Sans',
+                              fontWeight: FontWeight.w400,
+                              height: 1.50,
+                              letterSpacing: 0.25,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             
-            const SizedBox(height: 48),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: CustomButton(
-                    text: 'Покрутить ещё',
-                    onPressed: () {
-                      // Возвращаемся с выбранным списком
+            // Кнопки внизу
+            Positioned(
+              left: 34,
+              bottom: 30,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Кнопка "Покрутить ещё"
+                  GestureDetector(
+                    onTap: () {
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
@@ -116,20 +178,67 @@ class RandomResultScreen extends StatelessWidget {
                         ),
                       );
                     },
-                    backgroundColor: AppColors.primary,
+                    child: Container(
+                      width: 170,
+                      height: 40,
+                      padding: const EdgeInsets.all(10),
+                      decoration: ShapeDecoration(
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                            width: 2,
+                            color: AppColors.textSecondary,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Покрутить ещё',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 16,
+                            fontFamily: 'Instrument Sans',
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: CustomButton(
-                    text: 'На главную',
-                    onPressed: () {
+                  
+                  const SizedBox(width: 20),
+                  
+                  // Кнопка "На главную"
+                  GestureDetector(
+                    onTap: () {
                       context.go('/home');
                     },
-                    backgroundColor: Colors.grey,
+                    child: Container(
+                      width: 155,
+                      height: 40,
+                      padding: const EdgeInsets.all(10),
+                      decoration: ShapeDecoration(
+                        color: AppColors.secondary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'На главную',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 16,
+                            fontFamily: 'Instrument Sans',
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),

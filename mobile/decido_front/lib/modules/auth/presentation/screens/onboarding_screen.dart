@@ -83,9 +83,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       context.go(RouteNames.register);
                     },
                     width: 201,
-                    fontSize: 24,
                     backgroundColor: AppColors.secondary,
-                    textColor: AppColors.textLight,
+                    textStyle: AppTextStyles.buttonSmall,
                   ),
                   const SizedBox(height: 16),
                   CustomButton(
@@ -94,10 +93,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       context.go(RouteNames.login);
                     },
                     width: 201,
-                    fontSize: 20,
                     backgroundColor: AppColors.tertiary,
-                    textColor: AppColors.textSecondary,
                     isOutlined: false,
+                    textStyle: AppTextStyles.buttonSmall,
                   ),
                 ],
               ),

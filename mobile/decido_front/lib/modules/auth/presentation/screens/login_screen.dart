@@ -181,9 +181,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       text: 'Это я!',
                       onPressed: _handleLogin,
                       width: 201,
-                      fontSize: 20,
                       backgroundColor: AppColors.secondary,
-                      textColor: AppColors.textLight,
+                      textStyle: AppTextStyles.buttonSmall,
                     ),
                   ),
                   

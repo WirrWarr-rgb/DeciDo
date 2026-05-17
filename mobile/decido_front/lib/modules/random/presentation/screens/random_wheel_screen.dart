@@ -38,38 +38,67 @@ class _RandomWheelScreenState extends ConsumerState<RandomWheelScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScaffold(
-      title: widget.list.name,
-      showBackButton: true,
-      menuIconColor: AppColors.textPrimary,
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: WheelOfFortune(
-              items: widget.list.items,
-              onSpinEnd: _onSpinEnd,
-
-              // Медленное, напряженное вращение
-              spinDuration: Duration(seconds: 12),
-              spinCurve: Curves.easeOutExpo,
-              minRotations: 2,
-              maxRotations: 6,
-
-
-              // Быстрое, энергичное вращение
-              //spinDuration: Duration(seconds: 3),
-              //spinCurve: Curves.easeOutCubic,
-              //minRotations: 4,
-              //maxRotations: 8,
-
-              // С эффектом "отскока" в конце
-              //spinDuration: Duration(seconds: 5),
-              //spinCurve: Curves.easeOutBack,
-              //minRotations: 6,
-              //maxRotations: 12,
-            ),
+    return Scaffold(
+      body: Container(
+        width: 412,
+        height: 892,
+        decoration: ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
+        ),
+        child: Stack(
+          children: [
+
+            // Заголовок
+            Positioned(
+              left: 90,
+              top: 112,
+              child: Text(
+                'Крути колесо!',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 32,
+                  fontFamily: 'Instrument Sans',
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                ),
+              ),
+            ),
+            
+            // Колесо
+            Positioned(
+              left: 0,
+              top: 220,
+              right: 0,
+              bottom: 0,
+              child: SingleChildScrollView(
+                child: WheelOfFortune(
+                  items: widget.list.items,
+                  onSpinEnd: _onSpinEnd,
+                  
+                  // Медленное, напряженное вращение
+                  spinDuration: Duration(seconds: 12),
+                  spinCurve: Curves.easeOutExpo,
+                  minRotations: 2,
+                  maxRotations: 6,
+                  
+                  // Быстрое, энергичное вращение
+                  // spinDuration: Duration(seconds: 3),
+                  // spinCurve: Curves.easeOutCubic,
+                  // minRotations: 4,
+                  // maxRotations: 8,
+                  
+                  // С эффектом "отскока" в конце
+                  // spinDuration: Duration(seconds: 5),
+                  // spinCurve: Curves.easeOutBack,
+                  // minRotations: 6,
+                  // maxRotations: 12,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

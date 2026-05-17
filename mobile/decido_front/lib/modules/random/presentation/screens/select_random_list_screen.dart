@@ -8,6 +8,7 @@ import '../../../session/models/session_models.dart';
 import '../../../session/presentation/screens/select_list_bottom_sheet.dart';
 import '../../../session/presentation/screens/session_item_edit_bottom_sheet.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../../list/repository/list_repository.dart';
 import '../../repository/random_repository.dart';
@@ -194,7 +195,9 @@ class _SelectRandomListScreenState extends ConsumerState<SelectRandomListScreen>
     final listTop = hasList ? 375 : 310;
     final listHeight = hasList ? 385 : 430;
     
-    return Scaffold(
+    return CustomScaffold(
+      title: "Подготовка",
+      showBackButton: true,
       body: Stack(
         children: [
           Container(
@@ -208,42 +211,6 @@ class _SelectRandomListScreenState extends ConsumerState<SelectRandomListScreen>
             ),
             child: Stack(
               children: [
-                // Кнопка назад
-                Positioned(
-                  left: 10,
-                  top: 52,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                    onPressed: () => context.pop(),
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-                
-                // Кнопка меню (заглушка)
-                Positioned(
-                  left: 50,
-                  top: 52,
-                  child: IconButton(
-                    icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                    onPressed: () {},
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-                
-                // Заголовок
-                Positioned(
-                  left: 82,
-                  top: 52,
-                  child: Text(
-                    'Подготовка',
-                    style: AppTextStyles.headlineMedium.copyWith(
-                      color: AppColors.textPrimary,
-                      fontSize: 24,
-                      height: 1.67,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
                 
                 // Счетчик элементов списка
                 Positioned(
@@ -359,17 +326,23 @@ class _SelectRandomListScreenState extends ConsumerState<SelectRandomListScreen>
                       width: 512,
                       height: 385,
                       child: _items.isEmpty
-                          ? Center(
+                          ? Align(
+                              alignment: Alignment(-0.6, 0),
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.format_list_bulleted, size: 64, color: Colors.grey),
+                                  Icon(Icons.format_list_bulleted, size: 64, color: AppColors.tertiary),
                                   const SizedBox(height: 16),
-                                  const Text('Список пуст'),
+                                  const Text(
+                                    style: AppTextStyles.bodyGeneral,
+                                    'Список пуст'
+                                    ),
                                   const SizedBox(height: 16),
                                   ElevatedButton(
                                     onPressed: _addNewItem,
-                                    child: const Text('Добавить первый элемент'),
+                                    child: const Text(
+                                      style: AppTextStyles.button,
+                                      'Добавить первый элемент'),
                                   ),
                                 ],
                               ),
@@ -461,9 +434,8 @@ class _SelectRandomListScreenState extends ConsumerState<SelectRandomListScreen>
                     text: 'КРУТИТЬ КОЛЕСО',
                     onPressed: _startRandom,
                     width: 130,
-                    fontSize: 16,
                     backgroundColor: AppColors.secondary,
-                    textColor: AppColors.textPrimary,
+                    textStyle: AppTextStyles.buttonBig,
                   ),
                 ),
               ],

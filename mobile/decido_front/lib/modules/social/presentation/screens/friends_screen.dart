@@ -161,35 +161,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
         ),
         child: Stack(
           children: [
-            // Заголовок "Друзья"
-            Positioned(
-              left: 82,
-              top: 52,
-              child: Text(
-                'Друзья',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  height: 1.67,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            
-            // Кнопка меню
-            Positioned(
-              left: 10,
-              top: 52,
-              child: Container(
-                width: 37,
-                height: 37,
-                child: IconButton(
-                  icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                  onPressed: () {},
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            ),
             
             // Список друзей
             Positioned(

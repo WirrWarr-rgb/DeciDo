@@ -213,9 +213,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       text: 'Это я!',
                       onPressed: _handleRegister,
                       width: 201,
-                      fontSize: 20,
                       backgroundColor: AppColors.secondary,
-                      textColor: AppColors.textLight,
+                      textStyle: AppTextStyles.buttonSmall,
                     ),
                   ),
                   

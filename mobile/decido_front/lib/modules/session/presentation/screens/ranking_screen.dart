@@ -7,6 +7,7 @@ import '../../../../config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../providers/session_providers.dart';
 import '../../repository/i_session_repository.dart';
@@ -30,11 +31,13 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
   List<SessionListItemModel> _availableItems = [];
   List<SessionListItemModel?> _rankedItems = [];
   Map<int, SessionListItemModel> _itemsMap = {};
+  Map<int, Color> _itemColors = {};
   
   bool _isLoading = true;
   bool _hasVoted = false;
   String? _errorMessage;
   bool _isNavigating = false;
+  bool _showDetails = false;
   
   Timer? _timer;
   int _timerSeconds = 0;
@@ -42,8 +45,20 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
   
   Timer? _statusCheckTimer;
   
-  int? _draggingIndex;
-  bool _isDraggingEnabled = true;
+  int? _draggingFromRankedIndex;
+  int? _draggingFromAvailableIndex;
+  bool _isDraggingOverAvailableArea = false;
+
+  final List<Color> _colorPalette = [
+    AppColors.primary,
+    AppColors.secondary,
+    AppColors.tertiary,
+    AppColors.inputBackground,
+    AppColors.primary,
+    AppColors.secondary,
+    AppColors.tertiary,
+    AppColors.inputBackground,
+  ];
 
   @override
   void initState() {
@@ -71,7 +86,6 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
     
     switch (message.type) {
       case WSMessageType.userVoted:
-        // Только обновляем счётчик проголосовавших, не трогаем элементы
         if (_session != null) {
           final userId = message.payload['user_id'];
           final updatedParticipants = _session!.participants.map((p) {
@@ -151,7 +165,7 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
         return;
       }
       
-      if (session.status != SessionStatus.voting) {
+      if (session.status != SessionStatus.voting && !AppConfig.useMocks) {
         if (!_isNavigating && mounted) {
           _isNavigating = true;
           context.pushReplacement('/session/${widget.sessionId}');
@@ -168,6 +182,10 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
           _itemsMap = {for (var item in items) item.id: item};
           _availableItems = List.from(items);
           _rankedItems = List.filled(items.length, null);
+          
+          for (int i = 0; i < items.length; i++) {
+            _itemColors[items[i].id] = _colorPalette[i % _colorPalette.length];
+          }
         }
         
         _updateTimerFromSession(session);
@@ -203,11 +221,9 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
         timer.cancel();
         if (mounted) {
           setState(() => _showTimer = false);
-          // Только в мок-режиме отправляем случайный голос
           if (AppConfig.useMocks && !_hasVoted && !_isNavigating) {
             _submitEmptyVote();
           } else if (!AppConfig.useMocks) {
-            // В реальном режиме просто обновляем статус
             _checkVotingStatus();
           }
         }
@@ -250,52 +266,58 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
     return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
-  void _onDragStarted(int index) {
-    setState(() {
-      _draggingIndex = index;
-    });
-  }
-
-  void _onDragEnded() {
-    setState(() {
-      _draggingIndex = null;
-    });
-  }
-
-  bool _acceptDrag(int targetIndex) {
-    if (_draggingIndex == null || _rankedItems[_draggingIndex!] == null) {
-      return false;
-    }
-    
-    final draggedItem = _rankedItems[_draggingIndex!];
-    if (draggedItem != null) {
-      setState(() {
-        _rankedItems.removeAt(_draggingIndex!);
-        _rankedItems.insert(targetIndex, draggedItem);
-        _draggingIndex = null;
-      });
-      return true;
-    }
-    return false;
-  }
-
-  void _moveToRanked(int availableIndex) {
-    if (!_isDraggingEnabled) return;
+  void _moveFromAvailableToRanked(int availableIndex, int targetRankedIndex) {
+    if (availableIndex < 0 || availableIndex >= _availableItems.length) return;
+    if (targetRankedIndex < 0 || targetRankedIndex >= _rankedItems.length) return;
     
     final item = _availableItems[availableIndex];
     if (item == null) return;
     
-    final firstEmptyIndex = _rankedItems.indexWhere((pos) => pos == null);
-    if (firstEmptyIndex != -1) {
-      setState(() {
-        _rankedItems[firstEmptyIndex] = item;
+    setState(() {
+      // Если позиция свободна - просто ставим
+      if (_rankedItems[targetRankedIndex] == null) {
+        _rankedItems[targetRankedIndex] = item;
         _availableItems.removeAt(availableIndex);
-      });
-    }
+        return;
+      }
+      
+      // Если позиция занята - ищем ближайшую свободную
+      int? freeIndex;
+      
+      // Ищем свободную позицию выше
+      for (int i = targetRankedIndex - 1; i >= 0; i--) {
+        if (_rankedItems[i] == null) {
+          freeIndex = i;
+          break;
+        }
+      }
+      
+      // Ищем свободную позицию ниже
+      if (freeIndex == null) {
+        for (int i = targetRankedIndex + 1; i < _rankedItems.length; i++) {
+          if (_rankedItems[i] == null) {
+            freeIndex = i;
+            break;
+          }
+        }
+      }
+      
+      if (freeIndex != null) {
+        _rankedItems[freeIndex] = item;
+        _availableItems.removeAt(availableIndex);
+      } else {
+        // Нет свободных мест - меняем местами
+        final displacedItem = _rankedItems[targetRankedIndex]!;
+        _rankedItems[targetRankedIndex] = item;
+        _availableItems.add(displacedItem);
+        _availableItems.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+        _availableItems.removeAt(availableIndex);
+      }
+    });
   }
 
-  void _moveToAvailable(int rankedIndex) {
-    if (!_isDraggingEnabled) return;
+  void _moveFromRankedToAvailable(int rankedIndex) {
+    if (rankedIndex < 0 || rankedIndex >= _rankedItems.length) return;
     
     final item = _rankedItems[rankedIndex];
     if (item == null) return;
@@ -307,59 +329,191 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
     });
   }
 
+  void _moveFromRankedToRanked(int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
+    if (oldIndex < 0 || oldIndex >= _rankedItems.length) return;
+    if (newIndex < 0 || newIndex >= _rankedItems.length) return;
+    
+    final item = _rankedItems[oldIndex];
+    if (item == null) return;
+    
+    setState(() {
+      _rankedItems[oldIndex] = null;
+      
+      // Если целевая позиция свободна - просто вставляем
+      if (_rankedItems[newIndex] == null) {
+        _rankedItems[newIndex] = item;
+      } else {
+        // Если занята - сдвигаем элементы
+        if (newIndex > oldIndex) {
+          // Сдвиг вниз
+          for (int i = oldIndex; i < newIndex; i++) {
+            _rankedItems[i] = _rankedItems[i + 1];
+          }
+          _rankedItems[newIndex] = item;
+        } else {
+          // Сдвиг вверх
+          for (int i = oldIndex; i > newIndex; i--) {
+            _rankedItems[i] = _rankedItems[i - 1];
+          }
+          _rankedItems[newIndex] = item;
+        }
+      }
+    });
+  }
+
   void _showItemDetails(SessionListItemModel item) {
+    setState(() {
+      _showDetails = true;
+    });
+    
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => GestureDetector(
+        onTap: () {
+          setState(() {
+            _showDetails = false;
+          });
+          Navigator.pop(context);
+        },
+        child: Container(
+          height: 322,
+          decoration: const BoxDecoration(
+            color: Colors.transparent,
+          ),
+          child: GestureDetector(
+            onTap: () {},
+            child: Stack(
+              children: [
+                // Белая карточка
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  child: Container(
+                    width: 412,
+                    height: 322,
+                    decoration: const ShapeDecoration(
+                      color: AppColors.background,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(25),
+                          topRight: Radius.circular(25),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                item.name,
-                style: AppTextStyles.headlineSmall,
-              ),
-              const SizedBox(height: 12),
-              if (item.description != null)
-                Text(
-                  item.description!,
-                  style: AppTextStyles.bodyMedium,
+                
+                // Место для картинки
+                Positioned(
+                  left: 20,
+                  top: 24,
+                  child: Container(
+                    width: 150,
+                    height: 211,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: ShapeDecoration(
+                      color: AppColors.tertiary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.image,
+                        color: AppColors.textLight.withOpacity(0.5),
+                        size: 40,
+                      ),
+                    ),
+                  ),
                 ),
-              if (item.description == null)
-                Text(
-                  'Нет описания',
-                  style: AppTextStyles.bodyMedium.copyWith(color: Colors.grey),
+                
+                // Название
+                Positioned(
+                  left: 178,
+                  top: 24,
+                  child: SizedBox(
+                    width: 217,
+                    child: Text(
+                      item.name,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 20,
+                        fontFamily: 'Instrument Sans',
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
                 ),
-              const SizedBox(height: 24),
-              Center(
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Закрыть'),
+                
+                // Описание
+                Positioned(
+                  left: 178,
+                  top: 60,
+                  child: Container(
+                    width: 217,
+                    height: 180,
+                    child: SingleChildScrollView(
+                      child: Text(
+                        item.description != null && item.description!.isNotEmpty
+                            ? item.description!
+                            : 'Нет описания',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                          fontFamily: 'Instrument Sans',
+                          fontWeight: FontWeight.w400,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                
+                // Кнопка закрытия
+                Positioned(
+                  left: 284,
+                  top: 244,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _showDetails = false;
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      width: 110,
+                      height: 30,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: ShapeDecoration(
+                        color: AppColors.secondary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Закрыть',
+                          style: AppTextStyles.bodyLarge,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    );
+    ).then((_) {
+      setState(() {
+        _showDetails = false;
+      });
+    });
   }
-
 
   Future<void> _submitVote() async {
     if (_rankedItems.any((pos) => pos == null)) {
@@ -368,23 +522,20 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
     }
     
     setState(() {
-      _isDraggingEnabled = false;
       _isLoading = true;
     });
     
     final rankedIds = _rankedItems.map((item) => item!.id).toList();
     
     try {
-      final result = await _repository.submitVote(
+      await _repository.submitVote(
         widget.sessionId,
         rankedItemIds: rankedIds,
         spin: false,
       );
       
       if (mounted) {
-        // В мок-режиме сразу переходим к результатам
         if (AppConfig.useMocks) {
-          // Небольшая задержка для обработки на сервере
           await Future.delayed(const Duration(milliseconds: 500));
           if (mounted && !_isNavigating) {
             _isNavigating = true;
@@ -393,7 +544,6 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
           return;
         }
         
-        // Реальный режим
         setState(() {
           _hasVoted = true;
           _isLoading = false;
@@ -411,14 +561,12 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _isDraggingEnabled = true;
           _isLoading = false;
         });
         _showError(e.toString());
       }
     }
   }
-
 
   void _startVotingStatusCheck() {
     _statusCheckTimer?.cancel();
@@ -457,20 +605,29 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
 
     if (_errorMessage != null || _session == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Голосование')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(_errorMessage ?? 'Сессия не найдена'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => context.go('/home'),
-                child: const Text('На главную'),
-              ),
-            ],
+        body: Container(
+          width: 412,
+          height: 892,
+          decoration: const ShapeDecoration(
+            color: AppColors.background,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(_errorMessage ?? 'Сессия не найдена'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => context.go('/home'),
+                  child: const Text('На главную'),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -483,369 +640,689 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
     final votedCount = participants.where((p) => p.hasVoted).length;
     final totalCount = participants.length;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ранжирование элементов'),
-        actions: [
-          // Счётчик проголосовавших (только для реального режима)
-          if (!AppConfig.useMocks)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'Проголосовали: $votedCount / $totalCount',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-          if (_showTimer)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade100,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.timer, size: 16, color: Colors.orange.shade700),
-                  const SizedBox(width: 4),
-                  Text(
-                    _formatTime(_timerSeconds),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-      body: _hasVoted && !AppConfig.useMocks
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check_circle, size: 64, color: Colors.green),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Ваш голос принят!',
-                    style: AppTextStyles.headlineMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Ожидаем остальных участников...',
-                    style: AppTextStyles.bodyMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  const CircularProgressIndicator(),
-                ],
-              ),
-            )
-          : Column(
-              children: [
-                // Верхняя часть - ранжированный список (DragTarget)
-                Expanded(
-                  flex: 1,
-                  child: Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(
-                            'Ваш порядок предпочтения (1 - самый желаемый)',
-                            style: AppTextStyles.bodyMedium,
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        Expanded(
-                          child: DragTarget<int>(
-                            onWillAccept: (data) => true,
-                            onAccept: (index) {
-                              if (_draggingIndex != null && _rankedItems[_draggingIndex!] != null) {
-                                _acceptDrag(index);
-                              } else {
-                                _moveToRanked(index);
-                              }
-                            },
-                            builder: (context, candidateData, rejectedData) {
-                              return ListView.builder(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                itemCount: _rankedItems.length,
-                                itemBuilder: (context, index) {
-                                  final item = _rankedItems[index];
-                                  
-                                  return LongPressDraggable<int>(
-                                    data: index,
-                                    dragAnchorStrategy: childDragAnchorStrategy,
-                                    feedback: item != null
-                                        ? Material(
-                                            elevation: 4,
-                                            borderRadius: BorderRadius.circular(12),
-                                            child: Container(
-                                              width: MediaQuery.of(context).size.width - 32,
-                                              padding: const EdgeInsets.all(12),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(12),
-                                                border: Border.all(color: AppColors.primary),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Container(
-                                                    width: 32,
-                                                    height: 32,
-                                                    decoration: BoxDecoration(
-                                                      color: AppColors.primary.withOpacity(0.2),
-                                                      borderRadius: BorderRadius.circular(8),
-                                                    ),
-                                                    child: Center(
-                                                      child: Text(
-                                                        '${index + 1}',
-                                                        style: TextStyle(
-                                                          color: AppColors.primary,
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: Text(
-                                                      item.name,
-                                                      style: AppTextStyles.bodyLarge,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          )
-                                        : Container(),
-                                    childWhenDragging: Opacity(
-                                      opacity: 0.5,
-                                      child: _buildRankedItem(item, index),
-                                    ),
-                                    onDragStarted: () => _onDragStarted(index),
-                                    onDragEnd: (_) => _onDragEnded(),
-                                    child: _buildRankedItem(item, index),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                
-                // Нижняя часть - горизонтальный список доступных элементов
-                Container(
-                  height: 180,
-                  margin: const EdgeInsets.all(8),
+    return CustomScaffold(
+      title: "Составь рейтинг",
+      body: Container(
+        width: 412,
+        height: 892,
+        decoration: const ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+        ),
+        child: Stack(
+          children: [
+            
+            if (_showTimer)
+              Positioned(
+                right: 20,
+                top: 56,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: Row(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          'Доступные элементы (перетащите вверх)',
-                          style: AppTextStyles.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      Expanded(
-                        child: DragTarget<int>(
-                          onWillAccept: (data) => true,
-                          onAccept: (index) => _moveToAvailable(index),
-                          builder: (context, candidateData, rejectedData) {
-                            return ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              itemCount: _availableItems.length,
-                              itemBuilder: (context, index) {
-                                final item = _availableItems[index];
-                                return Draggable<int>(
-                                  data: index,
-                                  feedback: Material(
-                                    elevation: 4,
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Container(
-                                      width: 200,
-                                      margin: const EdgeInsets.all(4),
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: AppColors.primary),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.name,
-                                            style: AppTextStyles.bodyLarge,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          if (item.description != null)
-                                            Text(
-                                              item.description!,
-                                              style: AppTextStyles.bodySmall,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  childWhenDragging: Opacity(
-                                    opacity: 0.5,
-                                    child: _buildAvailableItem(item),
-                                  ),
-                                  child: _buildAvailableItem(item),
-                                );
-                              },
-                            );
-                          },
+                      Icon(Icons.timer, size: 16, color: Colors.orange.shade700),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatTime(_timerSeconds),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade700,
                         ),
                       ),
                     ],
                   ),
                 ),
-                
-                // Кнопка отправки
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: CustomButton(
-                    text: 'Отправить результат',
-                    onPressed: _submitVote,
-                    backgroundColor: AppColors.primary,
+              ),
+            
+            if (!AppConfig.useMocks)
+              Positioned(
+                right: 20,
+                top: _showTimer ? 90 : 56,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.inputBackground.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                ),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildRankedItem(SessionListItemModel? item, int index) {
-    final isEmpty = item == null;
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        elevation: 2,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isEmpty ? Colors.grey.shade100 : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isEmpty ? Colors.grey.shade300 : AppColors.primary,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: isEmpty 
-                      ? Colors.grey.shade200 
-                      : AppColors.primary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
                   child: Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      color: isEmpty ? Colors.grey : AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                    'Проголосовали: $votedCount / $totalCount',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  isEmpty ? 'ПЕРЕТАЩИТЕ СЮДА ЭЛЕМЕНТ ДЛЯ ВЫБОРА' : item!.name,
-                  style: isEmpty
-                      ? AppTextStyles.bodyMedium.copyWith(color: Colors.grey)
-                      : AppTextStyles.bodyLarge,
+            
+            if (!_hasVoted || AppConfig.useMocks)
+              _buildRankingContent()
+            else
+              _buildWaitingContent(),
+            
+            Positioned(
+              left: 141,
+              bottom: 30,
+              child: CustomButton(
+                text: 'ОТПРАВИТЬ РЕЗУЛЬТАТ',
+                onPressed: _submitVote,
+                width: 130,
+                backgroundColor: AppColors.secondary,
+                textStyle: AppTextStyles.buttonBig,
+              ),
+            ),
+          
+            if (_showDetails)
+              Container(
+                width: 412,
+                height: 892,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppColors.tertiary.withOpacity(0.7),
+                      AppColors.secondary.withOpacity(0.7),
+                    ],
+                  ),
                 ),
               ),
-              if (!isEmpty)
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20, color: Colors.grey),
-                  onPressed: () => _moveToAvailable(index),
-                ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildAvailableItem(SessionListItemModel item) {
+  Widget _buildRankedItem(SessionListItemModel? item, int index) {
+    final isEmpty = item == null;
+    final positionNumber = index + 1;
+    
+    // Определяем цвета в зависимости от позиции
+    Color getBackgroundColor() {
+      if (isEmpty) {
+        if (positionNumber == 1) return const Color(0xFF8DA249);
+        if (positionNumber == 2) return const Color(0xFF759DA9);
+        if (positionNumber == 3) return const Color(0xFFF89254);
+        return AppColors.background;
+      } else {
+        if (positionNumber == 1) return AppColors.primary;
+        if (positionNumber == 2) return AppColors.inputBackground;
+        if (positionNumber == 3) return AppColors.secondary;
+        return AppColors.background;
+      }
+    }
+    
+    Color getTextColor() {
+      if (isEmpty) {
+        if (positionNumber == 1) return const Color(0xFF2E434F);
+        if (positionNumber == 2) return const Color(0xFF2E434F);
+        if (positionNumber == 3) return const Color(0xFFFBE1B5);
+        return AppColors.textSecondary;
+      } else {
+        if (positionNumber == 1) return AppColors.textLight;
+        if (positionNumber == 2) return AppColors.textLight;
+        if (positionNumber == 3) return AppColors.textLight;
+        return AppColors.textPrimary;
+      }
+    }
+    
+    Color getNumberBgColor() {
+      if (positionNumber == 1) return const Color(0xFFF89254);
+      if (positionNumber == 2) return const Color(0xFF2E434F);
+      if (positionNumber == 3) return const Color(0xFFFFEF65);
+      return const Color(0xFF759DA9);
+    }
+    
+    Color getNumberTextColor() {
+      if (positionNumber == 1) return const Color(0xFFFFEF65);
+      if (positionNumber == 2) return const Color(0xFF759DA9);
+      if (positionNumber == 3) return const Color(0xFFF89254);
+      return const Color(0xFFFBE1B5);
+    }
+    
+    Color getBorderColor() {
+      if (isEmpty) {
+        if (positionNumber <= 3) return Colors.transparent;
+        return AppColors.textSecondary;
+      } else {
+        if (positionNumber <= 3) return Colors.transparent;
+        return AppColors.textSecondary;
+      }
+    }
+    
+    final showImage = !isEmpty && positionNumber <= 3;
+    final bgColor = getBackgroundColor();
+    final textColor = getTextColor();
+    final numberBgColor = getNumberBgColor();
+    final numberTextColor = getNumberTextColor();
+    final borderColor = getBorderColor();
+    
     return Container(
-      width: 200,
-      margin: const EdgeInsets.all(4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+      width: 339,
+      height: 41,
+      margin: const EdgeInsets.only(bottom: 15),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Основной контейнер с текстом
+          Expanded(
+            child: Container(
+              width: 283,
+              height: 41,
+              clipBehavior: Clip.antiAlias,
+              decoration: ShapeDecoration(
+                color: bgColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                  side: borderColor != Colors.transparent 
+                      ? BorderSide(color: borderColor, width: 2)
+                      : BorderSide.none,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  // Изображение для первых трех позиций (только если не пусто)
+                  if (showImage)
+                    Positioned(
+                      left: 0,
+                      top: -156,
+                      child: Container(
+                        width: 290,
+                        height: 354,
+                        decoration: const BoxDecoration(
+                          image: DecorationImage(
+                            image: NetworkImage("https://placehold.co/283x354"),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Градиент для первых трех позиций (только если не пусто)
+                  if (showImage)
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      child: Container(
+                        width: 290,
+                        height: 41,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: positionNumber == 1
+                                ? [const Color(0xFF2E434F), const Color(0x002E434F), AppColors.primary]
+                                : positionNumber == 2
+                                ? [const Color(0xFF2E434F), const Color(0x002E434F), AppColors.inputBackground]
+                                : [const Color(0xFF2E434F), const Color(0x002E434F), AppColors.secondary],
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Текст
+                  Positioned(
+                    left: 29,
+                    top: 8,
+                    child: SizedBox(
+                      width: 230,
+                      child: Text(
+                        isEmpty ? 'Название Название Назва...' : item!.name,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 16,
+                          fontFamily: 'Instrument Sans',
+                          fontWeight: FontWeight.w500,
+                          height: 1.56,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 17),
+          // Цифра с номером позиции
+          Container(
+            width: 32,
+            height: 32,
+            padding: const EdgeInsets.all(2),
+            decoration: ShapeDecoration(
+              color: numberBgColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Stack(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: ShapeDecoration(
+                    color: numberTextColor,
+                    shape: const OvalBorder(),
+                  ),
+                ),
+                Positioned(
+                  left: positionNumber >= 10 ? 5 : 10,
+                  top: 3,
+                  child: Text(
+                    '$positionNumber',
+                    style: TextStyle(
+                      color: numberBgColor,
+                      fontSize: 20,
+                      fontFamily: 'Instrument Sans',
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Widget _buildRankingContent() {
+    return Column(
+      children: [
+        // Вертикальный список (ранжированные элементы)
+        Expanded(
+          flex: 2,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(36, 100, 36, 8),
+            child: ListView.builder(
+              itemCount: _rankedItems.length,
+              itemBuilder: (context, index) {
+                final item = _rankedItems[index];
+                
+                return Container(
+                  key: ValueKey(item?.id ?? index),
+                  child: DragTarget<int>(
+                    onWillAccept: (data) {
+                      if (data != null && _draggingFromAvailableIndex != null) {
+                        return true;
+                      }
+                      if (data != null && _draggingFromRankedIndex != null) {
+                        return true;
+                      }
+                      return false;
+                    },
+                    onAccept: (data) {
+                      if (_draggingFromAvailableIndex != null) {
+                        _moveFromAvailableToRanked(_draggingFromAvailableIndex!, index);
+                      } else if (_draggingFromRankedIndex != null) {
+                        _moveFromRankedToRanked(_draggingFromRankedIndex!, index);
+                      }
+                    },
+                    builder: (context, candidateData, rejectedData) {
+                      return LongPressDraggable<int>(
+                        data: index,
+                        delay: const Duration(milliseconds: 150),
+                        dragAnchorStrategy: childDragAnchorStrategy,
+                        feedback: item != null
+                            ? Material(
+                                elevation: 0,
+                                color: Colors.transparent,
+                                child: _buildRankedItem(item, index),
+                              )
+                            : Container(
+                                width: 339,
+                                height: 41,
+                                child: _buildRankedItem(item, index),
+                              ),
+                        childWhenDragging: Opacity(
+                          opacity: 0.5,
+                          child: _buildRankedItem(item, index),
+                        ),
+                        onDragStarted: () {
+                          setState(() {
+                            _draggingFromRankedIndex = index;
+                          });
+                        },
+                        onDragEnd: (_) {
+                          setState(() {
+                            _draggingFromRankedIndex = null;
+                            _isDraggingOverAvailableArea = false;
+                          });
+                        },
+                        child: _buildRankedItem(item, index),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        
+        // Горизонтальный список доступных элементов
+        Container(
+          height: 340,
+          width: 412,
+          margin: const EdgeInsets.only(left: 10, right: 10, bottom: 80),
+          child: Stack(
+            children: [
+              // Основной контент (горизонтальный список)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _availableItems.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final bgColor = _itemColors[item.id] ?? AppColors.primary;
+                    
+                    return Draggable<int>(
+                      data: index,
+                      feedback: Material(
+                        elevation: 0,
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(24),
+                        child: _buildCompactCard(item, bgColor),
+                      ),
+                      childWhenDragging: Opacity(
+                        opacity: 0.5,
+                        child: _buildAvailableCard(item, bgColor),
+                      ),
+                      onDragStarted: () {
+                        setState(() {
+                          _draggingFromAvailableIndex = index;
+                        });
+                      },
+                      onDragEnd: (_) {
+                        setState(() {
+                          _draggingFromAvailableIndex = null;
+                        });
+                      },
+                      child: _buildAvailableCard(item, bgColor),
+                    );
+                  }).toList(),
+                ),
+              ),
+              
+              // DragTarget область поверх всего (всегда поверх и фиксированного размера)
+              if (_draggingFromRankedIndex != null)
+                Positioned.fill(
+                  child: DragTarget<int>(
+                    onWillAccept: (data) {
+                      return data != null && _draggingFromRankedIndex != null;
+                    },
+                    onAccept: (data) {
+                      if (_draggingFromRankedIndex != null) {
+                        _moveFromRankedToAvailable(_draggingFromRankedIndex!);
+                      }
+                      setState(() {
+                        _isDraggingOverAvailableArea = false;
+                      });
+                    },
+                    onLeave: (data) {
+                      setState(() {
+                        _isDraggingOverAvailableArea = false;
+                      });
+                    },
+                    onMove: (details) {
+                      if (!_isDraggingOverAvailableArea) {
+                        setState(() {
+                          _isDraggingOverAvailableArea = true;
+                        });
+                      }
+                    },
+                    builder: (context, candidateData, rejectedData) {
+                      final isActive = _isDraggingOverAvailableArea;
+                      
+                      return Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        decoration: BoxDecoration(
+                          color: isActive 
+                              ? AppColors.secondary.withOpacity(0.15)
+                              : AppColors.secondary.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: isActive 
+                                ? AppColors.secondary
+                                : AppColors.secondary.withOpacity(0.5),
+                            width: 2,
+                            style: BorderStyle.solid,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.move_to_inbox,
+                              size: 48,
+                              color: isActive 
+                                  ? AppColors.secondary
+                                  : AppColors.secondary.withOpacity(0.7),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _availableItems.isEmpty
+                                  ? 'Перетащи сюда чтобы вернуть\nв нейтральный список'
+                                  : 'Вернуть в нейтральный список',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: isActive 
+                                    ? AppColors.secondary
+                                    : AppColors.secondary.withOpacity(0.7),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactCard(SessionListItemModel item, Color bgColor) {
+    return Container(
+      width: MediaQuery.of(context).size.width - 72,
+      height: 41,
+      padding: const EdgeInsets.only(top: 8, left: 29, right: 28, bottom: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: Center(
+        child: Text(
+          item.name,
+          style: const TextStyle(
+            color: AppColors.textLight,
+            fontSize: 16,
+            fontFamily: 'Instrument Sans',
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
+  Color _getPositionColor(int index, bool isEmpty) {
+    if (isEmpty) {
+      if (index == 0) return AppColors.primary;
+      if (index == 1) return AppColors.inputBackground;
+      if (index == 2) return AppColors.secondary;
+      return AppColors.background;
+    } else {
+      if (index == 0) return AppColors.primary;
+      if (index == 1) return AppColors.inputBackground;
+      if (index == 2) return AppColors.secondary;
+      return AppColors.background;
+    }
+  }
+
+  Color _getNumberBgColor(int index) {
+    if (index == 0) return const Color(0xFFFFEF65);
+    if (index == 1) return AppColors.tertiary;
+    if (index == 2) return AppColors.secondary;
+    return AppColors.textSecondary;
+  }
+
+  Color _getNumberTextColor(int index) {
+    if (index == 0) return AppColors.secondary;
+    if (index == 1) return AppColors.inputBackground;
+    if (index == 2) return const Color(0xFFFFEF65);
+    return AppColors.background;
+  }
+
+  Color _getTextColor(int index, bool isEmpty) {
+    if (isEmpty) {
+      if (index == 0) return AppColors.textPrimary;
+      if (index == 1) return AppColors.textPrimary;
+      if (index == 2) return AppColors.textLight;
+      return AppColors.textSecondary;
+    } else {
+      if (index == 0) return AppColors.textLight;
+      if (index == 1) return AppColors.textLight;
+      if (index == 2) return AppColors.textLight;
+      return AppColors.textPrimary;
+    }
+  }
+
+  Border? _getBorder(int index, bool isEmpty) {
+    if (isEmpty) return null;
+    if (index < 3) return null;
+    return Border.all(color: AppColors.textSecondary, width: 2);
+  }
+
+
+  Widget _buildAvailableCard(SessionListItemModel item, Color bgColor) {
+    return Container(
+      width: 193,
+      height: 318,
+      margin: const EdgeInsets.only(right: 20),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Stack(
         children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            child: Container(
+              width: 193,
+              height: 264,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.image,
+                  size: 60,
+                  color: AppColors.textSecondary.withOpacity(0.5),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            child: Container(
+              width: 193,
+              height: 265,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    bgColor.withOpacity(0),
+                    bgColor,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 24,
+            top: 214,
+            child: SizedBox(
+              width: 146,
+              child: Text(
+                item.name,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textLight,
+                  fontSize: 14,
+                  fontFamily: 'Instrument Sans',
+                  fontWeight: FontWeight.w700,
+                  height: 1.07,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 35,
+            bottom: 12,
+            child: GestureDetector(
+              onTap: () => _showItemDetails(item),
+              child: Container(
+                width: 124,
+                height: 28,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.textLight,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Center(
+                  child: Text(
+                    'Подробнее',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 13,
+                      fontFamily: 'Instrument Sans',
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWaitingContent() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle, size: 64, color: Colors.green),
+          SizedBox(height: 16),
           Text(
-            item.name,
-            style: AppTextStyles.bodyLarge,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            'Ваш голос принят!',
+            style: AppTextStyles.headlineMedium,
           ),
-          const SizedBox(height: 4),
-          if (item.description != null && item.description!.isNotEmpty)
-            Text(
-              item.description!,
-              style: AppTextStyles.bodySmall,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          const Spacer(),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: TextButton(
-              onPressed: () => _showItemDetails(item),
-              child: const Text('Подробнее'),
-            ),
+          SizedBox(height: 8),
+          Text(
+            'Ожидаем остальных участников...',
+            style: AppTextStyles.bodyMedium,
           ),
+          SizedBox(height: 24),
+          CircularProgressIndicator(),
         ],
       ),
     );

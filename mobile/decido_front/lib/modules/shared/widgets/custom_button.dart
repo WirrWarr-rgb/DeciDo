@@ -6,56 +6,46 @@ import '../../../core/theme/app_text_styles.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
+  final TextStyle textStyle;
   final VoidCallback onPressed;
   final bool isLoading;
   final bool isOutlined;
   final IconData? icon;
   final double? width;
-  final double? fontSize;
   final Color? backgroundColor;
-  final Color? textColor;
   
   const CustomButton({
     super.key,
     required this.text,
+    required this.textStyle,
     required this.onPressed,
     this.isLoading = false,
     this.isOutlined = false,
     this.icon,
     this.width,
-    this.fontSize = 20,
     this.backgroundColor,
-    this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final buttonStyle = isOutlined
         ? OutlinedButton.styleFrom(
-            foregroundColor: textColor ?? AppColors.textLight,
+            foregroundColor: textStyle.color ?? AppColors.textLight,
             backgroundColor: backgroundColor ?? AppColors.tertiary,
             minimumSize: Size(width ?? double.infinity, 48),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            textStyle: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w400,
-              fontFamily: 'Instrument Sans',
-            ),
+            textStyle: textStyle
           )
         : ElevatedButton.styleFrom(
             backgroundColor: backgroundColor ?? AppColors.secondary,
-            foregroundColor: textColor ?? AppColors.textLight,
+            foregroundColor: textStyle.color ?? AppColors.textLight,
             minimumSize: Size(width ?? double.infinity, 48),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            textStyle: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w400,
-              fontFamily: 'Instrument Sans',
-            ),
+            textStyle: textStyle
           );
     
     if (isOutlined) {

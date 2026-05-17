@@ -117,31 +117,6 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
         ),
         child: Stack(
           children: [
-            // Кнопка меню (заглушка)
-            Positioned(
-              left: 10,
-              top: 52,
-              child: IconButton(
-                icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                onPressed: () {},
-                padding: EdgeInsets.zero,
-              ),
-            ),
-
-            // Заголовок
-            Positioned(
-              left: 82,
-              top: 52,
-              child: Text(
-                'Мои списки',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  height: 1.67,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
 
             // Список
             Positioned(
@@ -168,7 +143,7 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
                                   text: 'Создать первый список',
                                   onPressed: _createNewList,
                                   width: 200,
-                                  fontSize: 16,
+                                  textStyle: AppTextStyles.buttonBig,
                                 ),
                               ],
                             ),
