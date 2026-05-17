@@ -7,6 +7,7 @@ import '../../../../config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../providers/session_providers.dart';
 import '../../repository/i_session_repository.dart';
@@ -639,7 +640,8 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
     final votedCount = participants.where((p) => p.hasVoted).length;
     final totalCount = participants.length;
 
-    return Scaffold(
+    return CustomScaffold(
+      title: "Составь рейтинг",
       body: Container(
         width: 412,
         height: 892,
@@ -651,39 +653,6 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
         ),
         child: Stack(
           children: [
-            Positioned(
-              left: 10,
-              top: 52,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                onPressed: () => context.pop(),
-                padding: EdgeInsets.zero,
-              ),
-            ),
-            
-            Positioned(
-              left: 50,
-              top: 52,
-              child: IconButton(
-                icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                onPressed: () {},
-                padding: EdgeInsets.zero,
-              ),
-            ),
-            
-            Positioned(
-              left: 82,
-              top: 52,
-              child: Text(
-                'Составь рейтинг',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  height: 1.67,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
             
             if (_showTimer)
               Positioned(
@@ -741,9 +710,8 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
                 text: 'ОТПРАВИТЬ РЕЗУЛЬТАТ',
                 onPressed: _submitVote,
                 width: 130,
-                fontSize: 14,
                 backgroundColor: AppColors.secondary,
-                textColor: AppColors.textPrimary,
+                textStyle: AppTextStyles.buttonBig,
               ),
             ),
           

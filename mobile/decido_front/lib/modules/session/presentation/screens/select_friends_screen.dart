@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../shared/widgets/custom_app_bar.dart';
 import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../social/repository/friends_repository.dart';
 import '../../../social/models/friend_model.dart';
@@ -92,11 +91,12 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return CustomScaffold(
+      title: "Выбрать друзей",
+      showBackButton: true,
       body: Container(
         width: 412,
         height: 892,
-        clipBehavior: Clip.antiAlias,
         decoration: ShapeDecoration(
           color: AppColors.background,
           shape: RoundedRectangleBorder(
@@ -105,67 +105,6 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
         ),
         child: Stack(
           children: [
-            // Кнопка назад
-            Positioned(
-              left: 10,
-              top: 52,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                onPressed: () => Navigator.pop(context),
-                padding: EdgeInsets.zero,
-              ),
-            ),
-            
-            // Кнопка меню (заглушка)
-            Positioned(
-              left: 50,
-              top: 52,
-              child: IconButton(
-                icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                onPressed: () {},
-                padding: EdgeInsets.zero,
-              ),
-            ),
-            
-            // Заголовок
-            Positioned(
-              left: 82,
-              top: 52,
-              child: Text(
-                'Выбрать друзей',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  height: 1.67,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            
-            // Кнопка "Готово" справа
-            Positioned(
-              right: 20,
-              top: 52,
-              child: GestureDetector(
-                onTap: _confirmSelection,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Готово (${_selectedFriendIds.length})',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontFamily: 'Instrument Sans',
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
             
             // Поле поиска
             Positioned(
@@ -173,7 +112,8 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
               top: 107,
               child: Container(
                 width: 330,
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 0),
                 decoration: ShapeDecoration(
                   color: AppColors.inputBackground,
                   shape: RoundedRectangleBorder(
@@ -181,35 +121,40 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
                   ),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Icon(Icons.search, color: AppColors.inputText, size: 20),
+                    const Icon(Icons.search, color: AppColors.darkBackground, size: 20),
                     const SizedBox(width: 5),
                     Expanded(
                       child: TextField(
                         controller: _searchController,
-                        style: TextStyle(
+                        textAlignVertical: TextAlignVertical.center,
+                        style: const TextStyle(
                           color: AppColors.inputText,
                           fontSize: 16,
                           fontFamily: 'Instrument Sans',
                           fontWeight: FontWeight.w400,
+                          height: 1.0,
                         ),
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           border: InputBorder.none,
                           hintText: 'Поиск друзей...',
                           hintStyle: TextStyle(
-                            color: AppColors.inputText.withOpacity(0.7),
+                            color: AppColors.inputText,
                             fontSize: 16,
                             fontFamily: 'Instrument Sans',
                             fontWeight: FontWeight.w400,
+                            height: 1.0,
                           ),
-                          contentPadding: EdgeInsets.zero,
+                          contentPadding: EdgeInsets.symmetric(vertical: 0),
+                          isDense: true,
                         ),
                         onChanged: _filterFriends,
                       ),
                     ),
                     if (_searchQuery.isNotEmpty)
                       IconButton(
-                        icon: const Icon(Icons.clear, color: AppColors.inputText, size: 20),
+                        icon: const Icon(Icons.clear, color: AppColors.darkBackground, size: 20),
                         onPressed: () {
                           _searchController.clear();
                           _filterFriends('');
@@ -227,9 +172,35 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
               left: 41,
               top: 165,
               child: Container(
-                width: 355,
+                width: 330,
                 height: 620,
                 child: _buildBody(),
+              ),
+            ),
+            
+            // Кнопка "Готово" по центру внизу
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 50,
+              child: Center(
+                child: GestureDetector(
+                  onTap: _confirmSelection,
+                  child: Container(
+                    width: 130,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Готово (${_selectedFriendIds.length})',
+                        style: AppTextStyles.buttonBig,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -304,12 +275,10 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
                       width: 200,
                       child: Text(
                         friend.username,
-                        style: TextStyle(
+                        style: AppTextStyles.bodyGeneral.copyWith(
                           color: AppColors.textPrimary,
                           fontSize: 20,
-                          fontFamily: 'Instrument Sans',
                           fontWeight: FontWeight.w500,
-                          height: 1.10,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -318,12 +287,10 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
                       width: 200,
                       child: Text(
                         friend.email,
-                        style: TextStyle(
+                        style: AppTextStyles.bodyGeneral.copyWith(
                           color: AppColors.textSecondary,
                           fontSize: 16,
-                          fontFamily: 'Instrument Sans',
                           fontWeight: FontWeight.w500,
-                          height: 1.38,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -332,7 +299,7 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
                 ),
               ),
               
-              // Кнопка выбора (галочка или плюс)
+              // Кнопка выбора (крестик удаления или галочка для выбранных)
               Positioned(
                 right: 0,
                 top: 15,
@@ -341,16 +308,21 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
                   child: Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primary : Colors.transparent,
-                      shape: BoxShape.circle,
-                      border: isSelected ? null : Border.all(color: AppColors.textSecondary, width: 2),
-                    ),
-                    child: Center(
-                      child: isSelected
-                          ? const Icon(Icons.check, color: Colors.white, size: 24)
-                          : const Icon(Icons.add, color: AppColors.textSecondary, size: 24),
-                    ),
+                    child: isSelected
+                        ? SvgPicture.asset(
+                            'assets/icons/delete_cross_icon.svg',
+                            width: 40,
+                            height: 40,
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.secondary,
+                              BlendMode.srcIn,
+                            ),
+                          )
+                        : SvgPicture.asset(
+                            'assets/icons/add_plus_green_icon.svg',
+                            width: 40,
+                            height: 40,
+                          ),
                   ),
                 ),
               ),

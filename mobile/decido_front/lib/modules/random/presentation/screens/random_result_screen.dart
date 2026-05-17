@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../models/random_item_model.dart';
 import 'select_random_list_screen.dart';
 
@@ -18,7 +19,8 @@ class RandomResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return CustomScaffold(
+      title: "Иии...Вот итог!",
       body: Container(
         width: 412,
         height: 892,
@@ -30,42 +32,6 @@ class RandomResultScreen extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // Кнопка назад
-            Positioned(
-              left: 10,
-              top: 52,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                onPressed: () => Navigator.pop(context),
-                padding: EdgeInsets.zero,
-              ),
-            ),
-            
-            // Кнопка меню (заглушка)
-            Positioned(
-              left: 50,
-              top: 52,
-              child: IconButton(
-                icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                onPressed: () {},
-                padding: EdgeInsets.zero,
-              ),
-            ),
-            
-            // Заголовок
-            Positioned(
-              left: 82,
-              top: 52,
-              child: Text(
-                'Иии...Вот итог!',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  height: 1.67,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
             
             // Карточка победителя
             Positioned(

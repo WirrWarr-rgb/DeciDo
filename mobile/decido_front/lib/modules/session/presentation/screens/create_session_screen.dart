@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../../list/repository/list_repository.dart';
 import '../../../list/models/list_model.dart';
@@ -294,7 +295,9 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
     final hasFriends = friendIds.isNotEmpty;
     final hasList = _selectedList != null;
     
-    return Scaffold(
+    return CustomScaffold(
+      title: "Подготовка",
+      showBackButton: true,
       body: Stack(
         children: [
           Container(
@@ -310,31 +313,6 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                 ? const LoadingWidget()
                 : Stack(
                     children: [
-                      // Кнопка назад
-                      Positioned(
-                        left: 10,
-                        top: 52,
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                          onPressed: () => context.pop(),
-                          padding: EdgeInsets.zero,
-                        ),
-                      ),
-                      
-                      // Заголовок
-                      Positioned(
-                        left: 60,
-                        top: 52,
-                        child: Text(
-                          'Подготовка',
-                          style: AppTextStyles.headlineMedium.copyWith(
-                            color: AppColors.textPrimary,
-                            fontSize: 24,
-                            height: 1.67,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
                       
                       // Выбор друзей
                       if (!hasFriends)
@@ -366,12 +344,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                                 children: [
                                   Text(
                                     'Выберите друзей',
-                                    style: TextStyle(
-                                      color: AppColors.textLight,
-                                      fontSize: 16,
-                                      fontFamily: 'Instrument Sans',
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                    style: AppTextStyles.dropbox
                                   ),
                                   const Icon(Icons.chevron_right, color: AppColors.textLight, size: 24),
                                 ],
@@ -387,7 +360,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                           top: 100,
                           child: SizedBox(
                             width: 330,
-                            height: 120,
+                            height: 129,
                             child: _buildSelectedFriendsList(),
                           ),
                         ),
@@ -402,11 +375,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                             child: Container(
                               width: 31,
                               height: 31,
-                              decoration: BoxDecoration(
-                                color: AppColors.inputBackground.withOpacity(0.5),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.chevron_left, color: AppColors.textPrimary, size: 20),
+                              child: const Icon(Icons.chevron_left, color: AppColors.textPrimary, size: 31),
                             ),
                           ),
                         ),
@@ -421,11 +390,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                             child: Container(
                               width: 31,
                               height: 31,
-                              decoration: BoxDecoration(
-                                color: AppColors.inputBackground.withOpacity(0.5),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.chevron_right, color: AppColors.textPrimary, size: 20),
+                              child: const Icon(Icons.chevron_right, color: AppColors.textPrimary, size: 31),
                             ),
                           ),
                         ),
@@ -433,25 +398,18 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                       // Счетчик элементов списка
                       Positioned(
                         left: 102,
-                        top: hasFriends ? 248 : 200,
+                        top: hasFriends ? 248 : 248,
                         child: Text.rich(
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: 'Элементов в списке ',
-                                style: TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 20,
-                                  fontFamily: 'Instrument Sans',
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                text: 'Список лобби ',
+                                style: AppTextStyles.sessionListDetail
                               ),
                               TextSpan(
                                 text: '${_selectedListItems.length}/20',
-                                style: TextStyle(
+                                style: AppTextStyles.sessionListDetail.copyWith(
                                   color: AppColors.secondary,
-                                  fontSize: 20,
-                                  fontFamily: 'Instrument Sans',
                                   fontWeight: FontWeight.w400,
                                 ),
                               ),
@@ -463,7 +421,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                       // Кнопка выбора списка
                       Positioned(
                         left: 78,
-                        top: hasFriends ? 281 : 233,
+                        top: hasFriends ? 281 : 281,
                         child: GestureDetector(
                           onTap: _toggleListDropdown,
                           child: Container(
@@ -480,12 +438,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                               children: [
                                 Text(
                                   _selectedList?.name ?? 'Выберите список',
-                                  style: TextStyle(
-                                    color: AppColors.textLight,
-                                    fontSize: 16,
-                                    fontFamily: 'Instrument Sans',
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  style: AppTextStyles.dropbox,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Icon(
@@ -502,8 +455,8 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                       // Кнопка добавления элемента
                       if (hasList)
                         Positioned(
-                          left: 25,
-                          top: hasFriends ? 365 : 317,
+                          left: 78,
+                          top: hasFriends ? 355 : 355,
                           child: GestureDetector(
                             onTap: _addNewItem,
                             child: Container(
@@ -522,12 +475,9 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                                   const SizedBox(width: 10),
                                   Text(
                                     'Добавить новый элемент',
-                                    style: TextStyle(
-                                      color: AppColors.textLight,
-                                      fontSize: 18,
-                                      fontFamily: 'Instrument Sans',
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                    style: AppTextStyles.bodyGeneral.copyWith(
+                                      color: AppColors.textLight
+                                    )
                                   ),
                                 ],
                               ),
@@ -538,23 +488,29 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                       // Список элементов
                       if (hasList)
                         Positioned(
-                          left: 25,
-                          top: hasFriends ? 430 : 380,
+                          left: 22,
+                          top: hasFriends ? 403 : 403,
                           child: Container(
                             width: 512,
-                            height: 320,
+                            height: 340,
                             child: _selectedListItems.isEmpty
-                                ? Center(
+                                ? Align(
+                                    alignment: Alignment(-0.6, 0),
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.format_list_bulleted, size: 64, color: Colors.grey),
+                                        Icon(Icons.format_list_bulleted, size: 64, color: AppColors.tertiary),
                                         const SizedBox(height: 16),
-                                        const Text('Список пуст'),
+                                        const Text(
+                                          style: AppTextStyles.bodyGeneral,
+                                          'Список пуст'
+                                          ),
                                         const SizedBox(height: 16),
                                         ElevatedButton(
                                           onPressed: _addNewItem,
-                                          child: const Text('Добавить первый элемент'),
+                                          child: const Text(
+                                            style: AppTextStyles.button,
+                                            'Добавить первый элемент'),
                                         ),
                                       ],
                                     ),
@@ -640,15 +596,17 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                       
                       // Кнопка "Открыть лобби"
                       Positioned(
-                        left: 141,
-                        bottom: 30,
-                        child: CustomButton(
-                          text: 'ОТКРЫТЬ ЛОББИ',
-                          onPressed: _createLobby,
-                          width: 130,
-                          fontSize: 16,
-                          backgroundColor: AppColors.secondary,
-                          textColor: AppColors.textPrimary,
+                        left: 0,
+                        right: 0,
+                        bottom: 50, 
+                        child: Center(
+                          child: CustomButton(
+                            text: 'ОТКРЫТЬ ЛОББИ',
+                            onPressed: _createLobby,
+                            width: 130,
+                            backgroundColor: AppColors.secondary,
+                            textStyle: AppTextStyles.buttonBig,
+                          ),
                         ),
                       ),
                     ],
@@ -659,7 +617,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
           if (_showListDropdown)
             Positioned(
               left: 78,
-              top: (hasFriends ? 281 : 233) + 45,
+              top: (hasFriends ? 281 : 281) + 45,
               child: SelectListBottomSheet(
                 onSelectList: _selectList,
                 onClose: () => setState(() => _showListDropdown = false),
@@ -719,12 +677,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                     child: Text(
                       friend.username.length > 7 ? '${friend.username.substring(0, 6)}.' : friend.username,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 14,
-                        fontFamily: 'Instrument Sans',
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: AppTextStyles.bodyGeneral.copyWith(color: AppColors.primary),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -749,33 +702,28 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                           ),
                         ),
                       ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: GestureDetector(
-                          onTap: () => _removeFriend(id),
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.close, size: 16, color: Colors.white),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    '...',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 12,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
-                    ),
+                  SizedBox(
+                    height: 30,
+                    width: 30,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () => _removeFriend(id),
+                        child: Container(
+                          height: 32,
+                          width: 32,
+                          child: SvgPicture.asset(
+                            'assets/icons/delete_cross_icon.svg',
+                            color: AppColors.secondary,
+                          )
+                        ),
+                      ),
+                      //child: SvgPicture.asset(
+                      //  'assets/icons/three_dots_icon.svg',
+                      //)
+                    )
                   ),
                 ],
               ),
@@ -784,7 +732,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
           // Кнопка добавления друзей
           Container(
             width: 65,
-            margin: const EdgeInsets.only(right: 19),
+            margin: const EdgeInsets.only(right: 19,bottom: 25),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -810,8 +758,10 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                       color: AppColors.secondary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Center(
-                      child: Icon(Icons.add, color: Colors.white, size: 30),
+                    child: Center(
+                      child: SvgPicture.asset(
+                        'assets/icons/add_plus_white_icon.svg',
+                      )
                     ),
                   ),
                 ),

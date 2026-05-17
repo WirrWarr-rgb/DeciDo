@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/router/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -94,13 +95,7 @@ class HomeScreen extends ConsumerWidget {
                   child: Text(
                     'Что будем делать сегодня, $username?',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.textLight,
-                      fontSize: 36,
-                      fontFamily: 'Instrument Sans',
-                      fontWeight: FontWeight.w700,
-                      height: 0.97,
-                    ),
+                    style: AppTextStyles.homeMainText
                   ),
                 ),
               ),
@@ -125,32 +120,19 @@ class HomeScreen extends ConsumerWidget {
                       Container(
                         width: 89,
                         height: 89,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.casino,
-                            color: AppColors.textLight,
-                            size: 50,
+                        child: Center(
+                          child: SvgPicture.asset(
+                            'assets/icons/home_dice_icon.svg',
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 29),
                       const SizedBox(
                         width: 148,
                         child: Text(
                           'Помоги выбрать',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 24,
-                            fontFamily: 'Instrument Sans',
-                            fontWeight: FontWeight.w700,
-                            height: 0.83,
-                            letterSpacing: 0.25,
-                          ),
+                          style: AppTextStyles.homeSubText
                         ),
                       ),
                     ],
@@ -178,15 +160,9 @@ class HomeScreen extends ConsumerWidget {
                       Container(
                         width: 100,
                         height: 100,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.groups,
-                            color: AppColors.textLight,
-                            size: 50,
+                        child: Center(
+                          child: SvgPicture.asset(
+                            'assets/icons/home_cup_icon.svg',
                           ),
                         ),
                       ),
@@ -196,14 +172,7 @@ class HomeScreen extends ConsumerWidget {
                         child: Text(
                           'Выберу с друзьями',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 24,
-                            fontFamily: 'Instrument Sans',
-                            fontWeight: FontWeight.w700,
-                            height: 0.83,
-                            letterSpacing: 0.25,
-                          ),
+                          style: AppTextStyles.homeSubText
                         ),
                       ),
                     ],

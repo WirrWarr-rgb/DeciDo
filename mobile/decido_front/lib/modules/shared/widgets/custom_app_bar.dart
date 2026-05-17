@@ -1,3 +1,4 @@
+import 'package:decido_front/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 
@@ -31,7 +32,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     icon: Icon(
                       Icons.arrow_back,
                       color: menuIconColor ?? AppColors.textPrimary,
-                      size: 24,
+                      size: 37,
                     ),
                     onPressed: () => Navigator.pop(context),
                   )
@@ -41,7 +42,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       icon: Icon(
                         Icons.menu,
                         color: menuIconColor ?? AppColors.textPrimary,
-                        size: 24,
+                        size: 37,
                       ),
                       onPressed: () {
                         Scaffold.of(context).openDrawer();
@@ -56,11 +57,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
+              style: AppTextStyles.pageName,
               overflow: TextOverflow.ellipsis,
             ),
           ),

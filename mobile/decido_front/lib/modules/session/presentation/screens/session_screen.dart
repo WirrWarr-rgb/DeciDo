@@ -7,6 +7,7 @@ import '../../../../config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../providers/session_providers.dart';
 import '../../repository/i_session_repository.dart';
@@ -85,7 +86,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         break;
         
       case WSMessageType.participantReady:
-        // Сразу обновляем UI для isReady
         final userId = message.payload['user_id'];
         if (userId != null && _session != null) {
           final updatedParticipants = _session!.participants.map((p) {
@@ -131,7 +131,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         break;
         
       case WSMessageType.timerUpdated:
-        // Обновляем isReady для всех участников из timer_updated
         final participantsList = message.payload['participants'];
         if (participantsList != null && _session != null) {
           final updatedParticipants = _session!.participants.map((p) {
@@ -286,56 +285,53 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   void _startVoting() {
-  if (_isLoading) return;
-  if (_session == null) return;
-  
-  // Проверка на пустой список
-  final items = _session!.currentList?.items ?? [];
-  if (items.isEmpty) {
-    _showError('Добавьте хотя бы один элемент в список');
-    return;
-  }
-  
-  if (!_session!.canStart) {
-    _showError('Не все участники готовы');
-    return;
-  }
-
-  
-  if (AppConfig.useMocks) {
-    context.go('/session/${widget.sessionId}/ranking');
-    return;
-  }
-
-  print('Starting voting via WebSocket');
-  _webSocket.startVoting();
-}
-  
- Future<void> _toggleReady() async {
-  if (_isLoading) return;
-  if (_session == null) return;
-  
-  final currentUserId = ref.read(authStateProvider)?.id;
-  if (currentUserId == null) return;
-  
-  final currentParticipant = _session!.participants.firstWhere(
-    (p) => p.userId == currentUserId,
-    orElse: () => _session!.participants.first,
-  );
-  
-  try {
-    if (currentParticipant.isReady) {
-      await _repository.unmarkReady(widget.sessionId);
-    } else {
-      await _repository.markReady(widget.sessionId);
+    if (_isLoading) return;
+    if (_session == null) return;
+    
+    final items = _session!.currentList?.items ?? [];
+    if (items.isEmpty) {
+      _showError('Добавьте хотя бы один элемент в список');
+      return;
     }
-    // Ждём немного и обновляем состояние
-    await Future.delayed(const Duration(milliseconds: 300));
-    await _loadSession();
-  } catch (e) {
-    _showError('Ошибка: $e');
+    
+    if (!_session!.canStart) {
+      _showError('Не все участники готовы');
+      return;
+    }
+
+    if (AppConfig.useMocks) {
+      context.go('/session/${widget.sessionId}/ranking');
+      return;
+    }
+
+    print('Starting voting via WebSocket');
+    _webSocket.startVoting();
   }
-}
+  
+  Future<void> _toggleReady() async {
+    if (_isLoading) return;
+    if (_session == null) return;
+    
+    final currentUserId = ref.read(authStateProvider)?.id;
+    if (currentUserId == null) return;
+    
+    final currentParticipant = _session!.participants.firstWhere(
+      (p) => p.userId == currentUserId,
+      orElse: () => _session!.participants.first,
+    );
+    
+    try {
+      if (currentParticipant.isReady) {
+        await _repository.unmarkReady(widget.sessionId);
+      } else {
+        await _repository.markReady(widget.sessionId);
+      }
+      await Future.delayed(const Duration(milliseconds: 300));
+      await _loadSession();
+    } catch (e) {
+      _showError('Ошибка: $e');
+    }
+  }
   
   String? _getCountdownText() {
     if (_session?.countdownEndsAt == null) return null;
@@ -463,7 +459,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       print('Locking list');
       await _repository.lockList(widget.sessionId);
     }
-    // Ждем WebSocket обновления
   }
 
   void _addNewItem() {
@@ -547,10 +542,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   void _leaveLobby() {
     if (_session!.isOwner) {
-      // Хост закрывает лобби
       _webSocket.closeLobby();
     } else {
-      // Участник покидает лобби
       _webSocket.leaveLobby();
     }
     if (mounted) {
@@ -618,7 +611,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       orElse: () => session.participants.first,
     );
 
-    return Scaffold(
+    return CustomScaffold(
+      title: "Лобби",
+      showBackButton: true,
       body: Stack(
         children: [
           Container(
@@ -632,31 +627,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             ),
             child: Stack(
               children: [
-                // Кнопка назад
-                Positioned(
-                  left: 10,
-                  top: 52,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                    onPressed: () => context.pop(),
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-                
-                // Заголовок
-                Positioned(
-                  left: 60,
-                  top: 52,
-                  child: Text(
-                    session.status == SessionStatus.voting ? 'Голосование' : 'Подготовка',
-                    style: AppTextStyles.headlineMedium.copyWith(
-                      color: AppColors.textPrimary,
-                      fontSize: 24,
-                      height: 1.67,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
                 
                 // Горизонтальный список участников с кнопкой добавления в конце
                 Positioned(
@@ -664,7 +634,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                   top: 100,
                   child: SizedBox(
                     width: 330,
-                    height: 120,
+                    height: 129,
                     child: _buildParticipantsList(allParticipants, session.isOwner, session.canInvite),
                   ),
                 ),
@@ -679,11 +649,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                       child: Container(
                         width: 31,
                         height: 31,
-                        decoration: BoxDecoration(
-                          color: AppColors.inputBackground.withOpacity(0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.chevron_left, color: AppColors.textPrimary, size: 20),
+                        child: const Icon(Icons.chevron_left, color: AppColors.textPrimary, size: 31),
                       ),
                     ),
                   ),
@@ -698,16 +664,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                       child: Container(
                         width: 31,
                         height: 31,
-                        decoration: BoxDecoration(
-                          color: AppColors.inputBackground.withOpacity(0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.chevron_right, color: AppColors.textPrimary, size: 20),
+                        child: const Icon(Icons.chevron_right, color: AppColors.textPrimary, size: 31),
                       ),
                     ),
                   ),
                 
-                // Счетчик элементов списка (исправлено!)
+                // Счетчик элементов списка
                 Positioned(
                   left: 102,
                   top: 248,
@@ -715,20 +677,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                     TextSpan(
                       children: [
                         TextSpan(
-                          text: 'Элементов в списке ',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 20,
-                            fontFamily: 'Instrument Sans',
-                            fontWeight: FontWeight.w700,
-                          ),
+                          text: 'Список лобби ',
+                          style: AppTextStyles.sessionListDetail,
                         ),
                         TextSpan(
                           text: '${items.length}/20',
-                          style: TextStyle(
+                          style: AppTextStyles.sessionListDetail.copyWith(
                             color: AppColors.secondary,
-                            fontSize: 20,
-                            fontFamily: 'Instrument Sans',
                             fontWeight: FontWeight.w400,
                           ),
                         ),
@@ -765,12 +720,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                     ),
                   ),
                 
-                // Название списка с замком (обновляется через WebSocket)
+                // Название списка с замком
                 Positioned(
                   left: 78,
                   top: 281,
                   child: Container(
                     width: 257,
+                    height: 44,
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
                     decoration: ShapeDecoration(
                       color: AppColors.primary,
@@ -784,12 +740,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                         Expanded(
                           child: Text(
                             activeList?.name ?? 'Список',
-                            style: TextStyle(
-                              color: AppColors.textLight,
-                              fontSize: 16,
-                              fontFamily: 'Instrument Sans',
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: AppTextStyles.dropbox,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -809,11 +760,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                   ),
                 ),
                 
-                // Кнопка добавления элемента (как элемент списка)
+                // Кнопка добавления элемента
                 if (session.canEditList && !session.listLocked)
                   Positioned(
-                    left: 25,
-                    top: 365,
+                    left: 78,
+                    top: 355,
                     child: GestureDetector(
                       onTap: _addNewItem,
                       child: Container(
@@ -832,11 +783,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                             const SizedBox(width: 10),
                             Text(
                               'Добавить новый элемент',
-                              style: TextStyle(
+                              style: AppTextStyles.bodyGeneral.copyWith(
                                 color: AppColors.textLight,
-                                fontSize: 18,
-                                fontFamily: 'Instrument Sans',
-                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
@@ -847,24 +795,31 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                 
                 // Список элементов
                 Positioned(
-                  left: 25,
-                  top: session.canEditList && !session.listLocked ? 430 : 365,
+                  left: 22,
+                  top: session.canEditList && !session.listLocked ? 403 : 365,
                   child: Container(
                     width: 512,
-                    height: session.canEditList && !session.listLocked ? 280 : 340,
+                    height: session.canEditList && !session.listLocked ? 340 : 280,
                     child: items.isEmpty
-                        ? Center(
+                        ? Align(
+                            alignment: Alignment(-0.6, 0),
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.format_list_bulleted, size: 64, color: Colors.grey),
+                                Icon(Icons.format_list_bulleted, size: 64, color: AppColors.tertiary),
                                 const SizedBox(height: 16),
-                                const Text('Список пуст'),
+                                const Text(
+                                  'Список пуст',
+                                  style: AppTextStyles.bodyGeneral,
+                                ),
                                 const SizedBox(height: 16),
                                 if (session.canEditList && !session.listLocked)
                                   ElevatedButton(
                                     onPressed: _addNewItem,
-                                    child: const Text('Добавить первый элемент'),
+                                    child: const Text(
+                                      'Добавить первый элемент',
+                                      style: AppTextStyles.button,
+                                    ),
                                   ),
                               ],
                             ),
@@ -888,7 +843,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                                     mainAxisAlignment: MainAxisAlignment.start,
                                     crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
-                                      // Иконка удаления (удаляет сразу, без диалога)
+                                      // Иконка удаления
                                       if (session.canEditList && !session.listLocked)
                                         SizedBox(
                                           width: 35,
@@ -914,7 +869,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                                       if (session.canEditList && !session.listLocked) 
                                         const SizedBox(width: 21),
                                       
-                                      // Задний план (кликабельный для редактирования)
+                                      // Задний план
                                       Expanded(
                                         child: GestureDetector(
                                           onTap: (session.canEditList && !session.listLocked) 
@@ -955,64 +910,73 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                 // Кнопка "НАЧАТЬ" (только для хоста)
                 if (session.isOwner && session.status != SessionStatus.voting)
                   Positioned(
-                    left: 141,
-                    bottom: 100,
-                    child: CustomButton(
-                      text: 'НАЧАТЬ',
-                      onPressed: _startVoting,
-                      width: 130,
-                      fontSize: 16,
-                      backgroundColor: session.canStart ? AppColors.secondary : AppColors.textSecondary,
-                      textColor: AppColors.textPrimary,
+                    left: 0,
+                    right: 0,
+                    bottom: 90,
+                    child: Center(
+                      child: CustomButton(
+                        text: 'НАЧАТЬ',
+                        onPressed: _startVoting,
+                        width: 130,
+                        backgroundColor: session.canStart ? AppColors.secondary : AppColors.textSecondary,
+                        textStyle: AppTextStyles.buttonBig,
+                      ),
                     ),
                   ),
                 
                 // Кнопка "Я ГОТОВ"/"НЕ ГОТОВ" (только для не-хоста)
                 if (!session.isOwner && session.status != SessionStatus.voting)
                   Positioned(
-                    left: 141,
-                    bottom: 100,
-                    child: CustomButton(
-                      text: myPart.isReady ? 'НЕ ГОТОВ' : 'Я ГОТОВ',
-                      onPressed: _toggleReady,
-                      width: 130,
-                      fontSize: 16,
-                      backgroundColor: AppColors.secondary,
-                      textColor: AppColors.textPrimary,
+                    left: 0,
+                    right: 0,
+                    bottom: 90,
+                    child: Center(
+                      child: CustomButton(
+                        text: myPart.isReady ? 'НЕ ГОТОВ' : 'Я ГОТОВ',
+                        onPressed: _toggleReady,
+                        width: 130,
+                        backgroundColor: AppColors.secondary,
+                        textStyle: AppTextStyles.buttonBig,
+                      ),
                     ),
                   ),
                 
-                // Кнопка выхода (закрывает лобби для хоста, покидает для участника)
+                // Кнопка выхода
                 Positioned(
-                  right: 39,
+                  left: 0,
+                  right: 0,
                   bottom: 30,
-                  child: CustomButton(
-                    text: session.isOwner ? 'ЗАКРЫТЬ ЛОББИ' : 'ПОКИНУТЬ ЛОББИ',
-                    onPressed: _leaveLobby,
-                    width: 130,
-                    fontSize: 14,
-                    backgroundColor: AppColors.secondary,
-                    textColor: AppColors.textPrimary,
+                  child: Center(
+                    child: CustomButton(
+                      text: session.isOwner ? 'ЗАКРЫТЬ ЛОББИ' : 'ПОКИНУТЬ ЛОББИ',
+                      onPressed: _leaveLobby,
+                      width: 130,
+                      backgroundColor: AppColors.secondary,
+                      textStyle: AppTextStyles.buttonBig,
+                    ),
                   ),
                 ),
                 
                 // Индикатор голосования
                 if (session.status == SessionStatus.voting)
                   Positioned(
-                    left: 141,
-                    bottom: 30,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        myPart.hasVoted ? 'ВЫ ПРОГОЛОСОВАЛИ' : 'ИДЕТ ГОЛОСОВАНИЕ...',
-                        style: const TextStyle(
-                          color: AppColors.textLight,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                    left: 0,
+                    right: 0,
+                    bottom: 100,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          myPart.hasVoted ? 'ВЫ ПРОГОЛОСОВАЛИ' : 'ИДЕТ ГОЛОСОВАНИЕ...',
+                          style: const TextStyle(
+                            color: AppColors.textLight,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -1042,6 +1006,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     );
   }
 
+
   Widget _buildParticipantsList(List<ParticipantModel> participants, bool isOwner, bool canInvite) {
     return SingleChildScrollView(
       controller: _participantsScrollController,
@@ -1050,20 +1015,52 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         children: [
           ...participants.map((p) {
             Color avatarColor;
-            String statusText;
+            Widget statusWidget;
             
             if (p.isOwner) {
               avatarColor = AppColors.secondary;
-              statusText = 'Хост';
+              statusWidget = Text(
+                'Хост',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w800,
+                ),
+              );
             } else if (p.hasVoted) {
               avatarColor = Colors.purple;
-              statusText = 'Проголосовал';
+              statusWidget = Text(
+                'Проголосовал',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w800,
+                ),
+              );
             } else if (p.isReady) {
               avatarColor = Colors.green;
-              statusText = 'ГОТОВ';
+              statusWidget = Text(
+                'ГОТОВ',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontSize: 12,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w800,
+                ),
+              );
             } else {
               avatarColor = AppColors.tertiary;
-              statusText = '...';
+              statusWidget = SvgPicture.asset(
+                'assets/icons/three_dots_icon.svg',
+                width: 24,
+                height: 24,
+                fit: BoxFit.contain,
+              );
             }
             
             return Container(
@@ -1079,12 +1076,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                     child: Text(
                       p.username.length > 7 ? '${p.username.substring(0, 6)}.' : p.username,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 14,
-                        fontFamily: 'Instrument Sans',
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: AppTextStyles.bodyGeneral.copyWith(color: AppColors.primary),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -1114,14 +1106,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    statusText,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: p.isReady ? Colors.green : AppColors.primary,
-                      fontSize: 12,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
+                  SizedBox(
+                    height: 30,
+                    width: 30,
+                    child: Center(
+                      child: statusWidget,
                     ),
                   ),
                 ],
@@ -1133,7 +1122,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           if (canInvite)
             Container(
               width: 65,
-              margin: const EdgeInsets.only(right: 19),
+              margin: const EdgeInsets.only(right: 19, bottom: 25),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1149,8 +1138,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                         color: AppColors.secondary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Center(
-                        child: Icon(Icons.add, color: Colors.white, size: 30),
+                      child: Center(
+                        child: SvgPicture.asset(
+                          'assets/icons/add_plus_white_icon.svg',
+                          width: 30,
+                          height: 30,
+                        ),
                       ),
                     ),
                   ),
@@ -1161,4 +1154,5 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       ),
     );
   }
+
 }

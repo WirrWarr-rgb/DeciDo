@@ -113,6 +113,7 @@ class _SelectListBottomSheetState extends ConsumerState<SelectListBottomSheet> {
                           onTap: () => _selectList(list),
                           child: Container(
                             width: 247,
+                            height: 56,
                             margin: const EdgeInsets.all(5),
                             decoration: ShapeDecoration(
                               color: AppColors.background,
@@ -121,15 +122,11 @@ class _SelectListBottomSheetState extends ConsumerState<SelectListBottomSheet> {
                               ),
                             ),
                             child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                              visualDensity: const VisualDensity(vertical: -4), // Отрицательное значение уменьшает отступы
                               title: Text(
                                 list.name,
-                                style: TextStyle(
-                                  color: AppColors.secondary,
-                                  fontSize: 16,
-                                  fontFamily: 'Instrument Sans',
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: AppTextStyles.dropbox.copyWith(color: AppColors.secondary)
                               ),
                               subtitle: Text(
                                 '$itemsCount элементов',
