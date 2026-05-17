@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../../config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/custom_button.dart';
@@ -299,6 +300,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     _showError('Не все участники готовы');
     return;
   }
+
+  
+  if (AppConfig.useMocks) {
+    context.go('/session/${widget.sessionId}/ranking');
+    return;
+  }
+
   print('Starting voting via WebSocket');
   _webSocket.startVoting();
 }
