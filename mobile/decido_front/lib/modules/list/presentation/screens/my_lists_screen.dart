@@ -60,29 +60,110 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
     context.push('/edit-list/${list.id}').then((_) => _loadLists());
   }
 
-  void _deleteList(ListModel list) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить список?'),
-        content: Text('Вы уверены, что хотите удалить "${list.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
+void _deleteList(ListModel list) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 350,
+        padding: const EdgeInsets.all(20),
+        decoration: ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
-          TextButton(
-            onPressed: () {
-              _repository.deleteList(list.id);
-              Navigator.pop(context);
-              _loadLists();
-            },
-            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              list.name,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontFamily: 'Instrument Sans',
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Вы уверены, что хотите удалить этот список?',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 16,
+                fontFamily: 'Instrument Sans',
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 30),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      height: 40,
+                      decoration: ShapeDecoration(
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                            width: 2,
+                            color: AppColors.textSecondary,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Нет, отменить',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      _repository.deleteList(list.id);
+                      Navigator.pop(context);
+                      _loadLists();
+                    },
+                    child: Container(
+                      height: 40,
+                      decoration: ShapeDecoration(
+                        color: AppColors.secondary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Удалить',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -169,16 +250,16 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
                                             borderRadius: BorderRadius.circular(10),
                                           ),
                                         ),
-                                        child: Center(
-                                          child: Text(
-                                            '${index + 1}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
+                                        //child: Center(
+                                        //  child: Text(
+                                        //    '${index + 1}',
+                                        //    style: const TextStyle(
+                                        //      color: AppColors.background,
+                                        //      fontSize: 24,
+                                        //      fontWeight: FontWeight.bold,
+                                        //    ),
+                                        //  ),
+                                        //),
                                       ),
                                       const SizedBox(width: 15),
                                       // Информация о списке
@@ -188,13 +269,7 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
                                           children: [
                                             Text(
                                               list.name,
-                                              style: TextStyle(
-                                                color: AppColors.textPrimary,
-                                                fontSize: 20,
-                                                fontFamily: 'Instrument Sans',
-                                                fontWeight: FontWeight.w500,
-                                                height: 1.10,
-                                              ),
+                                              style: AppTextStyles.bodyGeneral,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             Text(

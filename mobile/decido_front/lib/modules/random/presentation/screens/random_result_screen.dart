@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -32,7 +33,14 @@ class RandomResultScreen extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            
+            // Фоновое SVG изображение
+            Positioned(
+              top: 46,
+              left: 0,
+              child: SvgPicture.asset(
+                'assets/icons/result_celebration_icon.svg',
+              ),
+            ),
             // Карточка победителя
             Positioned(
               left: 51,
@@ -102,13 +110,7 @@ class RandomResultScreen extends StatelessWidget {
                         child: Text(
                           winner.name,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 24,
-                            fontFamily: 'Instrument Sans',
-                            fontWeight: FontWeight.w700,
-                            height: 0.63,
-                          ),
+                          style: AppTextStyles.resultName
                         ),
                       ),
                     ),
@@ -142,14 +144,7 @@ class RandomResultScreen extends StatelessWidget {
                           child: Text(
                             winner.description ?? 'Нет описания',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                              fontFamily: 'Instrument Sans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.50,
-                              letterSpacing: 0.25,
-                            ),
+                            style: AppTextStyles.resultDescription
                           ),
                         ),
                       ),
@@ -181,7 +176,7 @@ class RandomResultScreen extends StatelessWidget {
                     child: Container(
                       width: 170,
                       height: 40,
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(1),
                       decoration: ShapeDecoration(
                         shape: RoundedRectangleBorder(
                           side: const BorderSide(
@@ -191,16 +186,11 @@ class RandomResultScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
                           'Покрутить ещё',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 16,
-                            fontFamily: 'Instrument Sans',
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: AppTextStyles.buttonBig.copyWith(color: AppColors.textSecondary)
                         ),
                       ),
                     ),
@@ -216,7 +206,7 @@ class RandomResultScreen extends StatelessWidget {
                     child: Container(
                       width: 155,
                       height: 40,
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(1),
                       decoration: ShapeDecoration(
                         color: AppColors.secondary,
                         shape: RoundedRectangleBorder(
@@ -227,12 +217,7 @@ class RandomResultScreen extends StatelessWidget {
                         child: Text(
                           'На главную',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 16,
-                            fontFamily: 'Instrument Sans',
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: AppTextStyles.buttonBig
                         ),
                       ),
                     ),

@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../providers/session_providers.dart';
 import '../../repository/i_session_repository.dart';
@@ -290,13 +292,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                     width: 217,
                     child: Text(
                       itemData['item_name'] ?? 'Элемент',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 20,
-                        fontFamily: 'Instrument Sans',
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
-                      ),
+                      style: AppTextStyles.itemName.copyWith(color: AppColors.textSecondary)
                     ),
                   ),
                 ),
@@ -309,23 +305,13 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Место: ${itemData['place']}',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 16,
-                          fontFamily: 'Instrument Sans',
-                          fontWeight: FontWeight.w500,
-                        ),
+                        'Место:   ${itemData['place']}',
+                        style: AppTextStyles.itemDescription.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w900)
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Очков: ${itemData['total_score']}',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 16,
-                          fontFamily: 'Instrument Sans',
-                          fontWeight: FontWeight.w500,
-                        ),
+                        'Очков:   ${itemData['total_score']}',
+                        style: AppTextStyles.itemDescription.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w900)
                       ),
                     ],
                   ),
@@ -343,13 +329,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                         sessionItem?.description != null && sessionItem!.description!.isNotEmpty
                             ? sessionItem.description!
                             : 'Нет описания',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
-                          fontFamily: 'Instrument Sans',
-                          fontWeight: FontWeight.w400,
-                          height: 1.4,
-                        ),
+                        style: AppTextStyles.itemDescription.copyWith(color: AppColors.textSecondary)
                       ),
                     ),
                   ),
@@ -446,7 +426,8 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
       );
     }
 
-    return Scaffold(
+    return CustomScaffold(
+      title: "Победитель",
       body: Stack(
         children: [
           Container(
@@ -460,43 +441,14 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
             ),
             child: Stack(
               children: [
-                // Кнопка назад
+                // Фоновое SVG изображение
                 Positioned(
-                  left: 10,
-                  top: 52,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                    onPressed: () => context.pop(),
-                    padding: EdgeInsets.zero,
+                  top: 46,
+                  left: 0,
+                  child: SvgPicture.asset(
+                    'assets/icons/result_celebration_icon.svg',
                   ),
                 ),
-                
-                // Кнопка меню (заглушка)
-                Positioned(
-                  left: 50,
-                  top: 52,
-                  child: IconButton(
-                    icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                    onPressed: () {},
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-                
-                // Заголовок
-                Positioned(
-                  left: 130,
-                  top: 52,
-                  child: Text(
-                    'Победитель',
-                    style: AppTextStyles.headlineMedium.copyWith(
-                      color: AppColors.textPrimary,
-                      fontSize: 24,
-                      height: 1.67,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                
                 // Карточка победителя
                 if (_winner != null)
                   Positioned(
@@ -564,13 +516,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                                 child: Text(
                                   _winner!['item_name'] ?? 'Элемент',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: AppColors.textLight,
-                                    fontSize: 14,
-                                    fontFamily: 'Instrument Sans',
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.07,
-                                  ),
+                                  style: AppTextStyles.rankingText.copyWith(color: AppColors.textLight),
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -588,16 +534,21 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                                   color: AppColors.textLight,
                                   borderRadius: BorderRadius.circular(18),
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    'Подробнее',
-                                    style: TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 13,
-                                      fontFamily: 'Instrument Sans',
-                                      fontWeight: FontWeight.w500,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Подробнее',
+                                      style: AppTextStyles.itemAboutButton,
                                     ),
-                                  ),
+                                    const SizedBox(width: 4),
+                                    SvgPicture.asset(
+                                      'assets/icons/navigation_arrow_down.svg',
+                                      width: 12,
+                                      height: 12,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -680,13 +631,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                                             width: 230,
                                             child: Text(
                                               item['item_name'] ?? 'Элемент',
-                                              style: TextStyle(
-                                                color: getTextColor(),
-                                                fontSize: 16,
-                                                fontFamily: 'Instrument Sans',
-                                                fontWeight: FontWeight.w500,
-                                                height: 1.56,
-                                              ),
+                                              style: AppTextStyles.rankingText.copyWith(color: getTextColor()),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -719,16 +664,13 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                                       ),
                                     ),
                                     Positioned(
-                                      left: positionNumber >= 10 ? 5 : 10,
-                                      top: 3,
-                                      child: Text(
-                                        '$positionNumber',
-                                        style: TextStyle(
-                                          color: getNumberBgColor(),
-                                          fontSize: 20,
-                                          fontFamily: 'Instrument Sans',
-                                          fontWeight: FontWeight.w700,
-                                          height: 1.25,
+                                      left: 0,
+                                      right: 0,
+                                      top: 2,
+                                      child: Center(
+                                        child: Text(
+                                          '$positionNumber',
+                                          style: AppTextStyles.rankingNumber.copyWith(color: getNumberBgColor())
                                         ),
                                       ),
                                     ),
@@ -753,7 +695,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                         child: Container(
                           width: 170,
                           height: 40,
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(1),
                           decoration: ShapeDecoration(
                             shape: RoundedRectangleBorder(
                               side: const BorderSide(
@@ -763,16 +705,11 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Center(
+                          child: Center(
                             child: Text(
                               'В лобби',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 20,
-                                fontFamily: 'Instrument Sans',
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: AppTextStyles.buttonBig.copyWith(color: AppColors.textSecondary)
                             ),
                           ),
                         ),
@@ -783,7 +720,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                         child: Container(
                           width: 155,
                           height: 40,
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(1),
                           decoration: ShapeDecoration(
                             color: AppColors.secondary,
                             shape: RoundedRectangleBorder(
@@ -794,12 +731,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                             child: Text(
                               'На главную',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 20,
-                                fontFamily: 'Instrument Sans',
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: AppTextStyles.buttonBig,
                             ),
                           ),
                         ),

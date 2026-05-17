@@ -128,14 +128,7 @@ class _SelectFriendsScreenState extends ConsumerState<SelectFriendsScreen> {
                     Expanded(
                       child: TextField(
                         controller: _searchController,
-                        textAlignVertical: TextAlignVertical.center,
-                        style: const TextStyle(
-                          color: AppColors.inputText,
-                          fontSize: 16,
-                          fontFamily: 'Instrument Sans',
-                          fontWeight: FontWeight.w400,
-                          height: 1.0,
-                        ),
+                        style: AppTextStyles.bodyGeneral,
                         decoration: const InputDecoration(
                           border: InputBorder.none,
                           hintText: 'Поиск друзей...',

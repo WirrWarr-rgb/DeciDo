@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -438,13 +439,7 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
                     width: 217,
                     child: Text(
                       item.name,
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 20,
-                        fontFamily: 'Instrument Sans',
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
-                      ),
+                      style: AppTextStyles.itemName.copyWith(color: AppColors.textSecondary)
                     ),
                   ),
                 ),
@@ -461,13 +456,7 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
                         item.description != null && item.description!.isNotEmpty
                             ? item.description!
                             : 'Нет описания',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
-                          fontFamily: 'Instrument Sans',
-                          fontWeight: FontWeight.w400,
-                          height: 1.4,
-                        ),
+                        style: AppTextStyles.itemDescription.copyWith(color: AppColors.textSecondary)
                       ),
                     ),
                   ),
@@ -704,14 +693,17 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
               _buildWaitingContent(),
             
             Positioned(
-              left: 141,
+              right: 0,
+              left: 0,
               bottom: 30,
-              child: CustomButton(
-                text: 'ОТПРАВИТЬ РЕЗУЛЬТАТ',
-                onPressed: _submitVote,
-                width: 130,
-                backgroundColor: AppColors.secondary,
-                textStyle: AppTextStyles.buttonBig,
+              child: Center(
+                child: CustomButton(
+                  text: 'ОТПРАВИТЬ РЕЗУЛЬТАТ',
+                  onPressed: _submitVote,
+                  width: 130,
+                  backgroundColor: AppColors.secondary,
+                  textStyle: AppTextStyles.buttonBig,
+                ),
               ),
             ),
           
@@ -870,14 +862,8 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
                     child: SizedBox(
                       width: 230,
                       child: Text(
-                        isEmpty ? 'Название Название Назва...' : item!.name,
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 16,
-                          fontFamily: 'Instrument Sans',
-                          fontWeight: FontWeight.w500,
-                          height: 1.56,
-                        ),
+                        isEmpty ? 'Перетащите элемент сюда!' : item!.name,
+                        style: AppTextStyles.rankingText.copyWith(color: textColor),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -910,16 +896,13 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
                   ),
                 ),
                 Positioned(
-                  left: positionNumber >= 10 ? 5 : 10,
-                  top: 3,
-                  child: Text(
-                    '$positionNumber',
-                    style: TextStyle(
-                      color: numberBgColor,
-                      fontSize: 20,
-                      fontFamily: 'Instrument Sans',
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
+                  left: 0,
+                  right: 0,
+                  top: 2,
+                  child: Center(
+                    child: Text(
+                      '$positionNumber',
+                      style: AppTextStyles.rankingNumber.copyWith(color: numberBgColor)
                     ),
                   ),
                 ),
@@ -1143,12 +1126,7 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
       child: Center(
         child: Text(
           item.name,
-          style: const TextStyle(
-            color: AppColors.textLight,
-            fontSize: 16,
-            fontFamily: 'Instrument Sans',
-            fontWeight: FontWeight.w500,
-          ),
+          style: AppTextStyles.rankingText.copyWith(color: AppColors.textLight),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -1261,13 +1239,7 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
               child: Text(
                 item.name,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textLight,
-                  fontSize: 14,
-                  fontFamily: 'Instrument Sans',
-                  fontWeight: FontWeight.w700,
-                  height: 1.07,
-                ),
+                style: AppTextStyles.rankingText.copyWith(color: AppColors.textLight),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1286,16 +1258,21 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
                   color: AppColors.textLight,
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: Center(
-                  child: Text(
-                    'Подробнее',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 13,
-                      fontFamily: 'Instrument Sans',
-                      fontWeight: FontWeight.w500,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Подробнее',
+                      style: AppTextStyles.itemAboutButton,
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    SvgPicture.asset(
+                      'assets/icons/navigation_arrow_down.svg',
+                      width: 12,
+                      height: 12,
+                      fit: BoxFit.contain,
+                    ),
+                  ],
                 ),
               ),
             ),

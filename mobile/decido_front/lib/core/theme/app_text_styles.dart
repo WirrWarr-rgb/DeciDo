@@ -119,6 +119,65 @@ class AppTextStyles {
       height: 2,
   );
 
+  static const TextStyle itemAboutButton = TextStyle(
+    color: AppColors.textPrimary,
+      fontSize: 13,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w500,
+      height: 1.54,
+  );
+
+  static const TextStyle itemName = TextStyle(
+    color: AppColors.textLight,
+    fontSize: 16,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w400,
+    height: 1.25,
+    letterSpacing: 0.25,
+  );
+
+  static const TextStyle resultName = TextStyle(
+    color: AppColors.textLight,
+      fontSize: 24,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w700,
+      height: 0.63,
+  );
+
+  static const TextStyle resultDescription = TextStyle(
+    color: AppColors.textSecondary,
+      fontSize: 12,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w400,
+      height: 1.50,
+      letterSpacing: 0.25,
+  );
+
+  static const TextStyle itemDescription = TextStyle(
+    color: AppColors.textLight,
+      fontSize: 12,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w400,
+      height: 1.67,
+      letterSpacing: 0.25,
+  );
+
+  static const TextStyle rankingText = TextStyle(
+    color: AppColors.textSecondary,
+    fontSize: 16,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w500,
+    height: 1.56,
+  );
+
+  static const TextStyle rankingNumber = TextStyle(
+    color: AppColors.textSecondary,
+    fontSize: 20,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w700,
+    height: 1.25,
+  );
+
   static const TextStyle dropbox = TextStyle(
     color: AppColors.textLight,
     fontSize: 16,
