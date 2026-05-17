@@ -241,6 +241,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       child: TextField(
                         controller: _emailController,
+                        cursorColor: AppColors.background,
+                        cursorWidth: 2,
+                        cursorRadius: Radius.circular(2), 
                         style: const TextStyle(
                           color: AppColors.inputText,
                           fontSize: 20,
@@ -283,6 +286,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: TextField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
+                        cursorColor: AppColors.background,
+                        cursorWidth: 2,
+                        cursorRadius: Radius.circular(2), 
                         style: const TextStyle(
                           color: AppColors.inputText,
                           fontSize: 20,

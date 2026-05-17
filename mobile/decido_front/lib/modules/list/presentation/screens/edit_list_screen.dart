@@ -79,7 +79,9 @@ class _EditListScreenState extends ConsumerState<EditListScreen> {
     setState(() {
       _items.add(newItem);
     });
-    _showItemEditSheet(newItem);
+    
+    //_showItemEditSheet(newItem);
+    
   }
 
   void _editItem(int index) {
@@ -349,12 +351,8 @@ class _EditListScreenState extends ConsumerState<EditListScreen> {
                                         ),
                                         child: Text(
                                           item.name,
-                                          style: TextStyle(
-                                            color: isEven ? AppColors.textPrimary : AppColors.textLight,
-                                            fontSize: 20,
-                                            fontFamily: 'Instrument Sans',
-                                            fontWeight: FontWeight.w500,
-                                            height: 1.10,
+                                          style: AppTextStyles.bodyGeneral.copyWith(
+                                            color: isEven ? AppColors.textPrimary : AppColors.textLight
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),

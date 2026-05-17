@@ -214,26 +214,19 @@ class _SelectRandomListScreenState extends ConsumerState<SelectRandomListScreen>
                 
                 // Счетчик элементов списка
                 Positioned(
-                  left: 102,
+                  left: 141,
                   top: 142,
                   child: Text.rich(
                     TextSpan(
                       children: [
                         TextSpan(
                           text: 'Список  ',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 20,
-                            fontFamily: 'Instrument Sans',
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: AppTextStyles.sessionListDetail
                         ),
                         TextSpan(
                           text: '${_items.length}/20',
-                          style: TextStyle(
+                          style: AppTextStyles.sessionListDetail.copyWith(
                             color: AppColors.secondary,
-                            fontSize: 20,
-                            fontFamily: 'Instrument Sans',
                             fontWeight: FontWeight.w400,
                           ),
                         ),
@@ -262,12 +255,7 @@ class _SelectRandomListScreenState extends ConsumerState<SelectRandomListScreen>
                         children: [
                           Text(
                             _selectedList?.name ?? 'Выберите список',
-                            style: TextStyle(
-                              color: AppColors.textLight,
-                              fontSize: 16,
-                              fontFamily: 'Instrument Sans',
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: AppTextStyles.dropbox,
                             overflow: TextOverflow.ellipsis,
                           ),
                           Icon(
@@ -304,12 +292,9 @@ class _SelectRandomListScreenState extends ConsumerState<SelectRandomListScreen>
                             const SizedBox(width: 10),
                             Text(
                               'Добавить новый элемент',
-                              style: TextStyle(
-                                color: AppColors.textLight,
-                                fontSize: 18,
-                                fontFamily: 'Instrument Sans',
-                                fontWeight: FontWeight.w500,
-                              ),
+                              style: AppTextStyles.bodyGeneral.copyWith(
+                                color: AppColors.textLight
+                              )
                             ),
                           ],
                         ),
@@ -405,12 +390,8 @@ class _SelectRandomListScreenState extends ConsumerState<SelectRandomListScreen>
                                               ),
                                               child: Text(
                                                 item.name,
-                                                style: TextStyle(
-                                                  color: isEven ? AppColors.textPrimary : AppColors.textLight,
-                                                  fontSize: 20,
-                                                  fontFamily: 'Instrument Sans',
-                                                  fontWeight: FontWeight.w500,
-                                                  height: 1.10,
+                                                style: AppTextStyles.bodyGeneral.copyWith(
+                                                  color: isEven ? AppColors.textPrimary : AppColors.textLight
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -428,14 +409,17 @@ class _SelectRandomListScreenState extends ConsumerState<SelectRandomListScreen>
                 
                 // Кнопка "Крутить колесо"
                 Positioned(
-                  left: 141,
+                  left: 0,
+                  right: 0,
                   bottom: 30,
-                  child: CustomButton(
-                    text: 'КРУТИТЬ КОЛЕСО',
-                    onPressed: _startRandom,
-                    width: 130,
-                    backgroundColor: AppColors.secondary,
-                    textStyle: AppTextStyles.buttonBig,
+                  child: Center(
+                    child: CustomButton(
+                      text: 'КРУТИТЬ КОЛЕСО',
+                      onPressed: _startRandom,
+                      width: 130,
+                      backgroundColor: AppColors.secondary,
+                      textStyle: AppTextStyles.buttonBig,
+                    ),
                   ),
                 ),
               ],

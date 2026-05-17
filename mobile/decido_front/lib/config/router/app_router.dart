@@ -14,7 +14,6 @@ import '../../modules/session/presentation/screens/ranking_screen.dart';
 import '../../modules/session/presentation/screens/results_screen.dart';
 import '../../modules/session/presentation/screens/select_friends_screen.dart';
 import '../../modules/session/presentation/screens/session_screen.dart';
-import '../../modules/social/presentation/screens/search_people_screen.dart';
 import '../../modules/list/presentation/screens/my_lists_screen.dart';
 import '../../modules/list/presentation/screens/edit_list_screen.dart';
 import '../../modules/social/presentation/screens/friends_screen.dart';
@@ -118,13 +117,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RouteNames.searchFriends,
         name: 'searchFriends',
         builder: (context, state) => const SearchFriendsScreen(),
-      ),
-      
-      // Поиск
-      GoRoute(
-        path: RouteNames.searchPeople,
-        name: 'searchPeople',
-        builder: (context, state) => const SearchPeopleScreen(),
       ),
 
 

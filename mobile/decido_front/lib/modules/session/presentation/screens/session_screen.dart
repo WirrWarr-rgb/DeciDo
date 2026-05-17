@@ -886,12 +886,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                                             ),
                                             child: Text(
                                               item.name,
-                                              style: TextStyle(
-                                                color: isEven ? AppColors.textPrimary : AppColors.textLight,
-                                                fontSize: 20,
-                                                fontFamily: 'Instrument Sans',
-                                                fontWeight: FontWeight.w500,
-                                                height: 1.10,
+                                              style: AppTextStyles.bodyGeneral.copyWith(
+                                                color: isEven ? AppColors.textPrimary : AppColors.textLight
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),

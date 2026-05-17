@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../repository/friends_repository.dart';
 import '../../models/user_search_model.dart';
 
@@ -153,7 +154,9 @@ class _SearchFriendsScreenState extends ConsumerState<SearchFriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return CustomScaffold(
+      title: "Поиск",
+      showBackButton: true,
       body: Container(
         width: 412,
         height: 892,
@@ -166,37 +169,6 @@ class _SearchFriendsScreenState extends ConsumerState<SearchFriendsScreen> {
         ),
         child: Stack(
           children: [
-            // Кнопка меню (три полоски) - заглушка
-            Positioned(
-              left: 10,
-              top: 52,
-              child: Container(
-                width: 37,
-                height: 37,
-                child: IconButton(
-                  icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                  onPressed: () {
-                    // TODO: Открыть pop-up меню
-                  },
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            ),
-            
-            // Заголовок "Поиск"
-            Positioned(
-              left: 82,
-              top: 52,
-              child: Text(
-                'Поиск',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  height: 1.67,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
             
             // Поле поиска
             Positioned(
@@ -410,7 +382,7 @@ class _SearchFriendsScreenState extends ConsumerState<SearchFriendsScreen> {
               
               // Кнопка действия
               Positioned(
-                right: 0,
+                right: 15,
                 top: 15,
                 child: isAlreadyFriend
                     ? Container(

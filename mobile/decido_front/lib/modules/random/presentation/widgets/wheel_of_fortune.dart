@@ -265,7 +265,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                   ),
                   child: const Icon(
                     Icons.arrow_drop_down,
-                    color: Colors.white,
+                    color: AppColors.background,
                     size: 30,
                   ),
                 ),
@@ -351,7 +351,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                                   ),
                                 ],
                                 border: Border.all(
-                                  color: needsHighlight ? Colors.white : Colors.transparent,
+                                  color: needsHighlight ? AppColors.background : Colors.transparent,
                                   width: liftStrength > 0.7 ? 3 : 2,
                                 ),
                               ),
@@ -360,7 +360,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                                 child: Stack(
                                   children: [
                                     Container(
-                                      color: Colors.white.withOpacity(liftStrength > 0 ? 0.2 : 0.1),
+                                      color: AppColors.background.withOpacity(liftStrength > 0 ? 0.2 : 0.1),
                                     ),
                                     Container(
                                       decoration: BoxDecoration(
@@ -368,7 +368,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                                           begin: Alignment.topCenter,
                                           end: Alignment.bottomCenter,
                                           colors: [
-                                            Colors.white.withOpacity(liftStrength > 0 ? 0.3 : 0.2),
+                                            AppColors.background.withOpacity(liftStrength > 0 ? 0.3 : 0.2),
                                             Colors.transparent,
                                             Colors.black.withOpacity(liftStrength > 0 ? 0.4 : 0.3),
                                           ],
@@ -381,7 +381,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                                         right: 8,
                                         child: Icon(
                                           Icons.arrow_drop_down,
-                                          color: Colors.white,
+                                          color: AppColors.background,
                                           size: liftStrength > 0.7 ? 24 : 20,
                                         ),
                                       ),
@@ -451,14 +451,14 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
               children: [
                 const Icon(
                   Icons.emoji_events,
-                  color: Colors.white,
+                  color: AppColors.background,
                   size: 24,
                 ),
                 const SizedBox(width: 12),
                 Text(
                   'Лидер: ${widget.items[_currentWinnerIndex!].name}',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.background,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -466,7 +466,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                 const SizedBox(width: 12),
                 const Icon(
                   Icons.arrow_drop_down,
-                  color: Colors.white,
+                  color: AppColors.background,
                   size: 28,
                 ),
               ],
@@ -481,14 +481,14 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [
-                  Colors.amber,
-                  Colors.orange,
+                  AppColors.secondary,
+                  AppColors.primary,
                 ],
               ),
               borderRadius: BorderRadius.circular(40),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.amber.withOpacity(0.5),
+                  color: AppColors.secondary.withOpacity(0.5),
                   blurRadius: 20,
                   spreadRadius: 5,
                 ),
@@ -499,14 +499,14 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
               children: [
                 const Icon(
                   Icons.emoji_events,
-                  color: Colors.white,
+                  color: AppColors.background,
                   size: 48,
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'ПОБЕДИТЕЛЬ!',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.background,
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
                     letterSpacing: 2,
@@ -516,7 +516,7 @@ class _WheelOfFortuneState extends State<WheelOfFortune>
                 Text(
                   _winner!.name,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.background,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),

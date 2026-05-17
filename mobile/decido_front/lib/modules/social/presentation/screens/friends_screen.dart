@@ -66,44 +66,124 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     }
   }
 
-  Future<void> _removeFriend(FriendModel friend) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить друга'),
-        content: Text('Вы уверены, что хотите удалить ${friend.username} из друзей?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+Future<void> _removeFriend(FriendModel friend) async {
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 350,
+        padding: const EdgeInsets.all(20),
+        decoration: ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Удалить'),
-          ),
-        ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              friend.username,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontFamily: 'Instrument Sans',
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Вы уверены, что хотите удалить ${friend.username} из друзей?',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 16,
+                fontFamily: 'Instrument Sans',
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 30),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context, false),
+                    child: Container(
+                      height: 40,
+                      decoration: ShapeDecoration(
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                            width: 2,
+                            color: AppColors.textSecondary,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Нет, отменить',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context, true),
+                    child: Container(
+                      height: 40,
+                      decoration: ShapeDecoration(
+                        color: AppColors.secondary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Удалить',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    );
+    ),
+  );
 
-    if (confirm == true) {
-      setState(() => _isLoading = true);
-      try {
-        await _repository.removeFriend(friend.id);
-        await _loadFriends();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Друг удален'), backgroundColor: Colors.orange),
-          );
-        }
-      } catch (e) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isLoading = false;
-        });
+  if (confirm == true) {
+    setState(() => _isLoading = true);
+    try {
+      await _repository.removeFriend(friend.id);
+      await _loadFriends();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Друг удален'), backgroundColor: Colors.orange),
+        );
       }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -322,17 +402,15 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 ),
               ),
               Positioned(
-                right: 0,
+                right: 15,
                 top: 15,
                 child: GestureDetector(
                   onTap: () => _removeFriend(friend),
                   child: Container(
-                    width: 40,
-                    height: 40,
-                    child: const Icon(
-                      Icons.person_remove,
-                      color: Colors.red,
-                      size: 30,
+                    child: SvgPicture.asset(
+                      'assets/icons/delete_cross_icon.svg',
+                      width: 40,
+                      height: 40,
                     ),
                   ),
                 ),

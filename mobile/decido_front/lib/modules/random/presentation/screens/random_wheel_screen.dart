@@ -53,7 +53,7 @@ class _RandomWheelScreenState extends ConsumerState<RandomWheelScreen> {
 
             // Заголовок
             Positioned(
-              left: 90,
+              left: 100,
               top: 112,
               child: Text(
                 'Крути колесо!',
