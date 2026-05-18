@@ -1,10 +1,13 @@
 import 'package:decido_front/modules/shared/widgets/custom_button.dart';
+import 'package:decido_front/modules/shared/widgets/custom_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
+import '../../../shared/widgets/custom_drawer.dart';
 import '../../repository/list_repository.dart';
 import '../../models/list_model.dart';
 import 'edit_list_screen.dart';
@@ -57,29 +60,110 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
     context.push('/edit-list/${list.id}').then((_) => _loadLists());
   }
 
-  void _deleteList(ListModel list) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить список?'),
-        content: Text('Вы уверены, что хотите удалить "${list.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
+void _deleteList(ListModel list) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 350,
+        padding: const EdgeInsets.all(20),
+        decoration: ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
-          TextButton(
-            onPressed: () {
-              _repository.deleteList(list.id);
-              Navigator.pop(context);
-              _loadLists();
-            },
-            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              list.name,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontFamily: 'Instrument Sans',
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Вы уверены, что хотите удалить этот список?',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 16,
+                fontFamily: 'Instrument Sans',
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 30),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      height: 40,
+                      decoration: ShapeDecoration(
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                            width: 2,
+                            color: AppColors.textSecondary,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Нет, отменить',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      _repository.deleteList(list.id);
+                      Navigator.pop(context);
+                      _loadLists();
+                    },
+                    child: Container(
+                      height: 40,
+                      decoration: ShapeDecoration(
+                        color: AppColors.secondary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Удалить',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -99,7 +183,9 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return CustomScaffold(
+      title: 'Мои списки',
+      menuIconColor: AppColors.textPrimary,
       body: Container(
         width: 412,
         height: 892,
@@ -112,31 +198,6 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
         ),
         child: Stack(
           children: [
-            // Кнопка меню (заглушка)
-            Positioned(
-              left: 10,
-              top: 52,
-              child: IconButton(
-                icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                onPressed: () {},
-                padding: EdgeInsets.zero,
-              ),
-            ),
-
-            // Заголовок
-            Positioned(
-              left: 82,
-              top: 52,
-              child: Text(
-                'Мои списки',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  height: 1.67,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
 
             // Список
             Positioned(
@@ -163,7 +224,7 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
                                   text: 'Создать первый список',
                                   onPressed: _createNewList,
                                   width: 200,
-                                  fontSize: 16,
+                                  textStyle: AppTextStyles.buttonBig,
                                 ),
                               ],
                             ),
@@ -189,16 +250,16 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
                                             borderRadius: BorderRadius.circular(10),
                                           ),
                                         ),
-                                        child: Center(
-                                          child: Text(
-                                            '${index + 1}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
+                                        //child: Center(
+                                        //  child: Text(
+                                        //    '${index + 1}',
+                                        //    style: const TextStyle(
+                                        //      color: AppColors.background,
+                                        //      fontSize: 24,
+                                        //      fontWeight: FontWeight.bold,
+                                        //    ),
+                                        //  ),
+                                        //),
                                       ),
                                       const SizedBox(width: 15),
                                       // Информация о списке
@@ -208,13 +269,7 @@ class _MyListsScreenState extends ConsumerState<MyListsScreen> {
                                           children: [
                                             Text(
                                               list.name,
-                                              style: TextStyle(
-                                                color: AppColors.textPrimary,
-                                                fontSize: 20,
-                                                fontFamily: 'Instrument Sans',
-                                                fontWeight: FontWeight.w500,
-                                                height: 1.10,
-                                              ),
+                                              style: AppTextStyles.bodyGeneral,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             Text(

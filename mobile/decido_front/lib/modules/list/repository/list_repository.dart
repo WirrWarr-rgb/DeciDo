@@ -1,5 +1,6 @@
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
+import '../../../config/app_config.dart';
 import '../models/list_model.dart';
 import '../models/list_item_model.dart';
 
@@ -15,7 +16,78 @@ class ListRepository {
   ListRepository() {
     _listsBox = Hive.box<ListModel>('lists');
     _itemsBox = Hive.box<ListItemModel>('items');
+    
+    // Добавляем начальные списки для мок-режима, если бокс пуст
+    _initMockDataIfNeeded();
   }
+
+  void _initMockDataIfNeeded() {
+    if (_listsBox.isEmpty && AppConfig.useMocks) {
+      // Создаем тестовый список
+      final now = DateTime.now();
+      final testList = ListModel(
+        id: _uuid.v4(),
+        name: 'Что заказать на ужин?',
+        createdAt: now,
+        updatedAt: now,
+      );
+      _listsBox.put(testList.id, testList);
+      
+      // Добавляем тестовые элементы
+      final testItems = [
+        ListItemModel(
+          id: _uuid.v4(),
+          listId: testList.id,
+          name: 'Пицца Маргарита',
+          description: 'Классическая итальянская пицца с томатами и моцареллой',
+          orderIndex: 0,
+          createdAt: now,
+          updatedAt: now,
+        ),
+        ListItemModel(
+          id: _uuid.v4(),
+          listId: testList.id,
+          name: 'Суши сет',
+          description: 'Ассорти из роллов и гунканов',
+          orderIndex: 1,
+          createdAt: now,
+          updatedAt: now,
+        ),
+        ListItemModel(
+          id: _uuid.v4(),
+          listId: testList.id,
+          name: 'Бургер',
+          description: 'Двойной бургер с говядиной, сыром и беконом',
+          orderIndex: 2,
+          createdAt: now,
+          updatedAt: now,
+        ),
+        ListItemModel(
+          id: _uuid.v4(),
+          listId: testList.id,
+          name: 'Паста Карбонара',
+          description: 'Спагетти с беконом в сливочном соусе',
+          orderIndex: 3,
+          createdAt: now,
+          updatedAt: now,
+        ),
+        ListItemModel(
+          id: _uuid.v4(),
+          listId: testList.id,
+          name: 'Цезарь с курицей',
+          description: 'Классический салат с курицей и соусом цезарь',
+          orderIndex: 4,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ];
+      
+      for (var item in testItems) {
+        _itemsBox.put(item.id, item);
+      }
+    }
+  }
+
   
   // Получить все списки
   List<ListModel> getAllLists() {
@@ -34,6 +106,8 @@ class ListRepository {
       return null;
     }
   }
+  
+
   
   // Создать новый список
   ListModel createList(String name) {

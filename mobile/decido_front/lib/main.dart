@@ -1,3 +1,4 @@
+import 'package:decido_front/config/app_config.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,30 +10,29 @@ import 'core/network/dio_client.dart';
 import 'modules/auth/providers/auth_controller_provider.dart';
 import 'modules/list/models/list_model.dart';
 import 'modules/list/models/list_item_model.dart';
+import 'modules/session/services/websocket_service.dart';
+import 'modules/auth/providers/auth_state_provider.dart';
+
+// Глобальный ключ для навигации (для GoRouter)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Загружаем переменные окружения
   await dotenv.load();
   
-  // Инициализация Hive
   await Hive.initFlutter();
-  
-  // Регистрируем адаптеры (обязательно!)
   Hive.registerAdapter(ListModelAdapter());
   Hive.registerAdapter(ListItemModelAdapter());
   
-  // Открываем боксы с правильными типами
   await Hive.openBox<ListModel>('lists');
   await Hive.openBox<ListItemModel>('items');
-  await Hive.openBox('settings');  // settings может быть dynamic
+  await Hive.openBox('settings');
   
-  // Инициализируем Dio клиент
   DioClient.init();
   
   testBackendConnection();
-
+  
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -62,15 +62,27 @@ class _MyAppState extends ConsumerState<MyApp> {
   }
 
   Future<void> _restoreSession() async {
-    // Ждем проверки авторизации
     await ref.read(authControllerProvider).checkAuth();
     setState(() {
       _isLoading = false;
     });
+    // Подключаем глобальный WebSocket после восстановления сессии
+    if (!WebSocketService.instance.isGlobalConnected) {
+      await WebSocketService.instance.connectGlobal();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Слушаем изменения авторизации
+    ref.listen(authStateProvider, (previous, next) {
+      if (next != null && previous == null) {
+        // Пользователь только что вошёл — подключаем WebSocket
+        if (!WebSocketService.instance.isGlobalConnected) {
+          WebSocketService.instance.connectGlobal();
+        }
+      }
+    });
     if (_isLoading) {
       return const MaterialApp(
         home: Scaffold(
@@ -84,7 +96,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     final router = ref.watch(appRouterProvider);
     
     return MaterialApp.router(
-      title: 'DeciDo',
+      title: 'DeciDo${AppConfig.useMocks ? ' [MOCK MODE]' : ''}',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

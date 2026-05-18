@@ -96,7 +96,156 @@ class AppTextStyles {
     fontFamily: 'Roboto',
     height: 1.43,
   );
+
+
+
+
+
+
+
+  static const TextStyle bodyGeneral = TextStyle(
+    color: AppColors.textPrimary,
+    fontSize: 20,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w500,
+    height: 1.10,
+  );
+
+  static const TextStyle bodyGeneralBold = TextStyle(
+    color: AppColors.textPrimary,
+      fontSize: 20,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w700,
+      height: 2,
+  );
+
+  static const TextStyle itemAboutButton = TextStyle(
+    color: AppColors.textPrimary,
+      fontSize: 13,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w500,
+      height: 1.54,
+  );
+
+  static const TextStyle itemName = TextStyle(
+    color: AppColors.textLight,
+    fontSize: 16,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w400,
+    height: 1.25,
+    letterSpacing: 0.25,
+  );
+
+  static const TextStyle resultName = TextStyle(
+    color: AppColors.textLight,
+      fontSize: 24,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w700,
+      height: 0.63,
+  );
+
+  static const TextStyle resultDescription = TextStyle(
+    color: AppColors.textSecondary,
+      fontSize: 12,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w400,
+      height: 1.50,
+      letterSpacing: 0.25,
+  );
+
+  static const TextStyle itemDescription = TextStyle(
+    color: AppColors.textLight,
+      fontSize: 12,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w400,
+      height: 1.67,
+      letterSpacing: 0.25,
+  );
+
+  static const TextStyle rankingText = TextStyle(
+    color: AppColors.textSecondary,
+    fontSize: 16,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w500,
+    height: 1.56,
+  );
+
+  static const TextStyle rankingNumber = TextStyle(
+    color: AppColors.textSecondary,
+    fontSize: 20,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w700,
+    height: 1.25,
+  );
+
+  static const TextStyle dropbox = TextStyle(
+    color: AppColors.textLight,
+    fontSize: 16,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w500,
+    height: 1.25,
+    letterSpacing: 0.25,
+  );
+
+  static const TextStyle sessionListDetail = TextStyle(
+    color: AppColors.textPrimary,
+          fontSize: 20,
+          fontFamily: 'Instrument Sans',
+          fontWeight: FontWeight.w700,
+          height: 1,
+          letterSpacing: 0.25,
+  );
+
+  // Home specific
+  static const TextStyle homeMainText = TextStyle(
+    color: AppColors.background,
+      fontSize: 36,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w700,
+      height: 0.97,
+  );
+
+  static const TextStyle homeSubText = TextStyle(
+    color: AppColors.background,
+      fontSize: 24,
+      fontFamily: 'Instrument Sans',
+      fontWeight: FontWeight.w700,
+      height: 0.83,
+      letterSpacing: 0.25,
+  );
+
+
+  // Page names
+  static const TextStyle pageName = TextStyle(
+    color: AppColors.tertiary,
+    fontSize: 24,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w700,
+    height: 1.67,
+  );
+
+
+
+  // Buttons
+  static const TextStyle buttonBig = TextStyle(
+    color: AppColors.textPrimary,
+    fontSize: 20,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w700,
+    height: 1.10,
+  );
   
+  static const TextStyle buttonMid = TextStyle(
+    color: AppColors.textPrimary,
+    fontSize: 16,
+    fontFamily: 'Instrument Sans',
+    fontWeight: FontWeight.w700,
+    height: 1.38,
+  );
+
+
+
+
   // Для совместимости со старым кодом (если где-то используется)
   static const TextStyle headline1 = headlineLarge;
   static const TextStyle headline2 = headlineMedium;

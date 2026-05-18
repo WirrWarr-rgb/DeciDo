@@ -8,16 +8,22 @@ import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/home/presentation/screens/home_screen.dart';
 import '../../modules/auth/providers/auth_state_provider.dart';
 import '../../modules/profile/presentation/screens/profile_screen.dart';
-import '../../modules/social/presentation/screens/groups_screen.dart';
-import '../../modules/social/presentation/screens/group_detail_screen.dart';
-import '../../modules/social/presentation/screens/create_group_screen.dart';
-import '../../modules/social/presentation/screens/search_people_screen.dart';
+import '../../modules/random/models/random_item_model.dart';
+import '../../modules/session/presentation/screens/create_session_screen.dart';
+import '../../modules/session/presentation/screens/ranking_screen.dart';
+import '../../modules/session/presentation/screens/results_screen.dart';
+import '../../modules/session/presentation/screens/select_friends_screen.dart';
+import '../../modules/session/presentation/screens/session_screen.dart';
 import '../../modules/list/presentation/screens/my_lists_screen.dart';
 import '../../modules/list/presentation/screens/edit_list_screen.dart';
 import '../../modules/social/presentation/screens/friends_screen.dart';
 import '../../modules/social/presentation/screens/friend_requests_screen.dart';
 import '../../modules/social/presentation/screens/search_friends_screen.dart';
+import '../../modules/random/presentation/screens/select_random_list_screen.dart';
+import '../../modules/random/presentation/screens/random_wheel_screen.dart';
+import '../../modules/random/presentation/screens/random_result_screen.dart';
 import 'route_names.dart';  // Добавляем импорт route_names
+import '../../../main.dart';
 
 // Временно убираем несуществующие экраны
 // import '../../modules/list/presentation/screens/create_list_screen.dart';
@@ -25,6 +31,7 @@ import 'route_names.dart';  // Добавляем импорт route_names
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: RouteNames.onboarding,
     redirect: (context, state) {
       final authState = ref.read(authStateProvider);
@@ -79,26 +86,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ProfileScreen(),
       ),
       
-      // Группы
-      GoRoute(
-        path: RouteNames.groups,
-        name: 'groups',
-        builder: (context, state) => const GroupsScreen(),
-      ),
-      GoRoute(
-        path: RouteNames.createGroup,
-        name: 'createGroup',
-        builder: (context, state) => const CreateGroupScreen(),
-      ),
-      GoRoute(
-        path: RouteNames.groupDetail,
-        name: 'groupDetail',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return GroupDetailScreen(groupId: id);
-        },
-      ),
-      
       // Списки
       GoRoute(
         path: RouteNames.myLists,
@@ -131,12 +118,59 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'searchFriends',
         builder: (context, state) => const SearchFriendsScreen(),
       ),
-      
-      // Поиск
+
+
+      // Лобби
       GoRoute(
-        path: RouteNames.searchPeople,
-        name: 'searchPeople',
-        builder: (context, state) => const SearchPeopleScreen(),
+        path: RouteNames.createSession,
+        name: 'createSession',
+        builder: (context, state) => const CreateSessionScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.selectFriends,
+        name: 'selectFriends',
+        builder: (context, state) => const SelectFriendsScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.session,
+        name: 'session',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          print('Navigating to session screen with id: $id');  // ← Добавь для отладки
+          return SessionScreen(sessionId: int.parse(id));
+        },
+      ),
+      GoRoute(
+        path: RouteNames.ranking,
+        name: 'ranking',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return RankingScreen(sessionId: int.parse(id));
+        },
+      ),
+      GoRoute(
+        path: RouteNames.results,
+        name: 'results',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ResultsScreen(sessionId: int.parse(id));
+        },
+      ),
+
+
+      // Колесо фортуны
+      GoRoute(
+        path: RouteNames.selectRandomList,
+        name: 'selectRandomList',
+        builder: (context, state) => const SelectRandomListScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.randomWheel,
+        name: 'randomWheel',
+        builder: (context, state) {
+          final list = state.extra as RandomListModel;
+          return RandomWheelScreen(list: list);
+        },
       ),
     ],
   );

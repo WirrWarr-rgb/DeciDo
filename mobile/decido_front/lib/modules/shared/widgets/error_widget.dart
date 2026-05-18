@@ -42,6 +42,7 @@ class CustomErrorWidget extends StatelessWidget {
             CustomButton(
               text: 'Повторить',
               onPressed: onRetry,
+              textStyle: AppTextStyles.buttonBig,
             ),
           ],
         ),

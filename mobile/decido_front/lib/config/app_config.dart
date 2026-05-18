@@ -2,11 +2,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConfig {
   // Режим работы: true - использовать моки, false - реальный бэкенд
-  static bool useMocks = false;
+  static bool useMocks = true;
   
   // Задержка для имитации сетевых запросов (мс)
   static const int mockDelay = 500;
   
+  // Мок-данные для сессий
+  static int _nextSessionId = 100;
+  static int _nextItemId = 1000;
+
   // Базовый URL бэкенда
   static String get apiBaseUrl {
     return dotenv.env['API_BASE_URL'] ?? 'http://localhost:8000/api/v1';
@@ -50,5 +54,43 @@ class AppConfig {
   
   static bool isEmailExists(String email) {
     return _users.values.any((user) => user['email'] == email);
+  }
+
+
+    // Мок-данные для сессий
+  static final Map<int, Map<String, dynamic>> _sessions = {};
+  
+  static int generateSessionId() {
+    return _nextSessionId++;
+  }
+  
+  static int generateItemId() {
+    return _nextItemId++;
+  }
+  
+  static void addSession(Map<String, dynamic> session) {
+    _sessions[session['id']] = session;
+  }
+  
+  static Map<String, dynamic>? getSession(int sessionId) {
+    return _sessions[sessionId];
+  }
+  
+  static List<Map<String, dynamic>> getUserSessions(int userId) {
+    return _sessions.values
+        .where((s) => 
+            s['owner_id'] == userId || 
+            (s['participants'] as List).any((p) => p['user_id'] == userId))
+        .toList();
+  }
+  
+  static void updateSession(int sessionId, Map<String, dynamic> updates) {
+    if (_sessions.containsKey(sessionId)) {
+      _sessions[sessionId]!.addAll(updates);
+    }
+  }
+  
+  static void deleteSession(int sessionId) {
+    _sessions.remove(sessionId);
   }
 }

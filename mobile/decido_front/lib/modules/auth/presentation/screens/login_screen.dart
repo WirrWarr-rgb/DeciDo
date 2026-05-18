@@ -181,9 +181,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       text: 'Это я!',
                       onPressed: _handleLogin,
                       width: 201,
-                      fontSize: 20,
                       backgroundColor: AppColors.secondary,
-                      textColor: AppColors.textLight,
+                      textStyle: AppTextStyles.buttonSmall,
                     ),
                   ),
                   
@@ -242,6 +241,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       child: TextField(
                         controller: _emailController,
+                        cursorColor: AppColors.background,
+                        cursorWidth: 2,
+                        cursorRadius: Radius.circular(2), 
                         style: const TextStyle(
                           color: AppColors.inputText,
                           fontSize: 20,
@@ -284,6 +286,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: TextField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
+                        cursorColor: AppColors.background,
+                        cursorWidth: 2,
+                        cursorRadius: Radius.circular(2), 
                         style: const TextStyle(
                           color: AppColors.inputText,
                           fontSize: 20,

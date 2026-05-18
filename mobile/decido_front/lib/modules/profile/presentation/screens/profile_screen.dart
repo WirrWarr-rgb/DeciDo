@@ -1,5 +1,6 @@
 
 
+import 'package:decido_front/modules/shared/widgets/custom_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -62,7 +63,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider);
 
-    return Scaffold(
+    return CustomScaffold(
+      title: "",
       body: Container(
         width: 412,
         height: 895,
@@ -128,7 +130,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 children: [
                   SizedBox(
                     width: 174,
-                    height: 32,
+                    height: 36,
                     child: Text(
                       user?.username ?? 'User',
                       textAlign: TextAlign.center,
@@ -139,7 +141,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 1),
                   Container(
                     width: 174,
                     child: Text(
@@ -158,6 +160,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             
+            /*
             // Группа "Аккаунт"
               Positioned(
                 left: 41,
@@ -286,6 +289,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
             ),
+            */
             
             // Кнопка выхода
             Positioned(
@@ -295,9 +299,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 text: 'Выйти из аккаунта',
                 onPressed: _handleLogout,
                 width: 330,
-                fontSize: 16,
                 backgroundColor: Colors.red.shade400,
-                textColor: Colors.white,
+                textStyle: AppTextStyles.buttonSmall,
               ),
             ),
           ],

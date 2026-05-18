@@ -79,7 +79,9 @@ class _EditListScreenState extends ConsumerState<EditListScreen> {
     setState(() {
       _items.add(newItem);
     });
-    _showItemEditSheet(newItem);
+    
+    //_showItemEditSheet(newItem);
+    
   }
 
   void _editItem(int index) {
@@ -270,17 +272,23 @@ class _EditListScreenState extends ConsumerState<EditListScreen> {
                 width: 512,
                 height: 600,
                 child: _items.isEmpty
-                    ? Center(
+                    ? Align(
+                        alignment: Alignment(-0.6, 0),
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.format_list_bulleted, size: 64, color: Colors.grey),
+                            Icon(Icons.format_list_bulleted, size: 64, color: AppColors.tertiary),
                             const SizedBox(height: 16),
-                            const Text('Список пуст'),
+                            const Text(
+                              style: AppTextStyles.bodyGeneral,
+                              'Список пуст'
+                              ),
                             const SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: _addNewItem,
-                              child: const Text('Добавить первый элемент'),
+                              child: const Text(
+                                style: AppTextStyles.button,
+                                'Добавить первый элемент'),
                             ),
                           ],
                         ),
@@ -343,12 +351,8 @@ class _EditListScreenState extends ConsumerState<EditListScreen> {
                                         ),
                                         child: Text(
                                           item.name,
-                                          style: TextStyle(
-                                            color: isEven ? AppColors.textPrimary : AppColors.textLight,
-                                            fontSize: 20,
-                                            fontFamily: 'Instrument Sans',
-                                            fontWeight: FontWeight.w500,
-                                            height: 1.10,
+                                          style: AppTextStyles.bodyGeneral.copyWith(
+                                            color: isEven ? AppColors.textPrimary : AppColors.textLight
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),

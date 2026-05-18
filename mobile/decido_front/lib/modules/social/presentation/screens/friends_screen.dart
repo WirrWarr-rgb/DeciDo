@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
+import '../../../shared/widgets/custom_drawer.dart';
+import '../../../shared/widgets/custom_scaffold.dart';
 import '../../repository/friends_repository.dart';
 import '../../models/friend_model.dart';
 import 'friend_requests_screen.dart';
@@ -63,48 +66,169 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     }
   }
 
-  Future<void> _removeFriend(FriendModel friend) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить друга'),
-        content: Text('Вы уверены, что хотите удалить ${friend.username} из друзей?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+Future<void> _removeFriend(FriendModel friend) async {
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 350,
+        padding: const EdgeInsets.all(20),
+        decoration: ShapeDecoration(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Удалить'),
-          ),
-        ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              friend.username,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontFamily: 'Instrument Sans',
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Вы уверены, что хотите удалить ${friend.username} из друзей?',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 16,
+                fontFamily: 'Instrument Sans',
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 30),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context, false),
+                    child: Container(
+                      height: 40,
+                      decoration: ShapeDecoration(
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                            width: 2,
+                            color: AppColors.textSecondary,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Нет, отменить',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context, true),
+                    child: Container(
+                      height: 40,
+                      decoration: ShapeDecoration(
+                        color: AppColors.secondary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Удалить',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    );
+    ),
+  );
 
-    if (confirm == true) {
-      setState(() => _isLoading = true);
-      try {
-        await _repository.removeFriend(friend.id);
-        await _loadFriends();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Друг удален'), backgroundColor: Colors.orange),
-          );
-        }
-      } catch (e) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isLoading = false;
-        });
+  if (confirm == true) {
+    setState(() => _isLoading = true);
+    try {
+      await _repository.removeFriend(friend.id);
+      await _loadFriends();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Друг удален'), backgroundColor: Colors.orange),
+        );
       }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return CustomScaffold(
+      title: 'Друзья',
+      menuIconColor: AppColors.textPrimary,
+      actions: [
+        // Кнопка "Заявки" - исправлено: без Positioned
+        GestureDetector(
+          onTap: () {
+            context.push('/friend-requests').then((_) {
+              _loadFriends();
+              _checkPendingRequests();
+            });
+          },
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Заявки',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontFamily: 'Instrument Sans',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 5),
+              if (_hasPendingRequests) ...[
+                SvgPicture.asset(
+                  'assets/icons/notif_dot_icon.svg',
+                  width: 10,
+                  height: 10,
+                ),
+                const SizedBox(width: 5),
+              ],
+              SvgPicture.asset(
+                'assets/icons/navigation_arrow_right.svg',
+                width: 20,
+                height: 20,
+              ),
+            ],
+          ),
+        ),
+      ],
       body: Container(
         width: 412,
         height: 892,
@@ -117,84 +241,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
         ),
         child: Stack(
           children: [
-            // Заголовок "Друзья"
-            Positioned(
-              left: 82,
-              top: 52,
-              child: Text(
-                'Друзья',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  height: 1.67,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            
-            // Кнопка "Заявки" справа от заголовка
-            Positioned(
-              left: 267,
-              top: 57,
-              child: GestureDetector(
-                onTap: () {
-                  context.push('/friend-requests').then((_) {
-                    _loadFriends();
-                    _checkPendingRequests();
-                  });
-                },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Текст "Заявки"
-                    Text(
-                      'Заявки',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 16,
-                        fontFamily: 'Instrument Sans',
-                        fontWeight: FontWeight.w700,
-                        height: 1.38,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    // Иконка уведомления (показывается только если есть запросы)
-                    if (_hasPendingRequests) ...[
-                      SvgPicture.asset(
-                        'assets/icons/notif_dot_icon.svg',
-                        width: 10,
-                        height: 10,
-                      ),
-                      const SizedBox(width: 5),
-                    ],
-                    // Иконка стрелки
-                    SvgPicture.asset(
-                      'assets/icons/navigation_arrow_right.svg',
-                      width: 20,
-                      height: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            // Кнопка меню (три полоски) - временно пустая заглушка
-            Positioned(
-              left: 10,
-              top: 52,
-              child: Container(
-                width: 37,
-                height: 37,
-                child: IconButton(
-                  icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-                  onPressed: () {
-                    // TODO: Открыть pop-up меню
-                  },
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            ),
             
             // Список друзей
             Positioned(
@@ -207,7 +253,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               ),
             ),
             
-            // Кнопка добавления друга (круглая оранжевая)
+            // Кнопка добавления друга
             Positioned(
               left: 176,
               top: 775,
@@ -276,10 +322,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
           children: [
             Icon(Icons.people_outline, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text(
-              'У вас пока нет друзей',
-              style: AppTextStyles.bodyMedium,
-            ),
+            Text('У вас пока нет друзей', style: AppTextStyles.bodyMedium),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
@@ -303,7 +346,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
           margin: const EdgeInsets.only(bottom: 15),
           child: Stack(
             children: [
-              // Аватар друга
               Container(
                 width: 65,
                 height: 65,
@@ -322,7 +364,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   ),
                 ),
               ),
-              // Информация о друге
               Positioned(
                 left: 80,
                 top: 5,
@@ -340,7 +381,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                           fontSize: 20,
                           fontFamily: 'Instrument Sans',
                           fontWeight: FontWeight.w500,
-                          height: 1.10,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -354,7 +394,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                           fontSize: 16,
                           fontFamily: 'Instrument Sans',
                           fontWeight: FontWeight.w500,
-                          height: 1.38,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -362,19 +401,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   ],
                 ),
               ),
-              // Кнопка удаления
               Positioned(
-                right: 0,
+                right: 15,
                 top: 15,
                 child: GestureDetector(
                   onTap: () => _removeFriend(friend),
                   child: Container(
-                    width: 40,
-                    height: 40,
-                    child: const Icon(
-                      Icons.person_remove,
-                      color: Colors.red,
-                      size: 30,
+                    child: SvgPicture.asset(
+                      'assets/icons/delete_cross_icon.svg',
+                      width: 40,
+                      height: 40,
                     ),
                   ),
                 ),
