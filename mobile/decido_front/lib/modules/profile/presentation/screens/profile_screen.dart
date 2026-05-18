@@ -130,7 +130,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 children: [
                   SizedBox(
                     width: 174,
-                    height: 32,
+                    height: 36,
                     child: Text(
                       user?.username ?? 'User',
                       textAlign: TextAlign.center,
@@ -141,7 +141,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 1),
                   Container(
                     width: 174,
                     child: Text(
@@ -160,6 +160,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             
+            /*
             // Группа "Аккаунт"
               Positioned(
                 left: 41,
@@ -288,6 +289,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
             ),
+            */
             
             // Кнопка выхода
             Positioned(
