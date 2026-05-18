@@ -39,6 +39,7 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
   String? _errorMessage;
   bool _isNavigating = false;
   bool _showDetails = false;
+  bool _voteSubmitted = false;
   
   Timer? _timer;
   int _timerSeconds = 0;
@@ -535,6 +536,7 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
         
         setState(() {
           _hasVoted = true;
+          _voteSubmitted = true; // Добавить эту строку
           _isLoading = false;
         });
         
@@ -692,20 +694,21 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
             else
               _buildWaitingContent(),
             
-            Positioned(
-              right: 0,
-              left: 0,
-              bottom: 30,
-              child: Center(
-                child: CustomButton(
-                  text: 'ОТПРАВИТЬ РЕЗУЛЬТАТ',
-                  onPressed: _submitVote,
-                  width: 130,
-                  backgroundColor: AppColors.secondary,
-                  textStyle: AppTextStyles.buttonBig,
+            if (!_hasVoted && !_voteSubmitted && (!_isNavigating || !AppConfig.useMocks))
+              Positioned(
+                right: 0,
+                left: 0,
+                bottom: 30,
+                child: Center(
+                  child: CustomButton(
+                    text: 'ОТПРАВИТЬ РЕЗУЛЬТАТ',
+                    onPressed: _submitVote,
+                    width: 130,
+                    backgroundColor: AppColors.secondary,
+                    textStyle: AppTextStyles.buttonBig,
+                  ),
                 ),
               ),
-            ),
           
             if (_showDetails)
               Container(

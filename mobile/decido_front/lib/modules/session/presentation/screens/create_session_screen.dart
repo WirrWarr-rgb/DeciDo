@@ -287,7 +287,15 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
       SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
-  
+
+  void _editItem(int index) {
+    final item = _selectedListItems[index];
+    setState(() {
+      _editingItemIndex = index;
+    });
+    _showItemEditSheet(item);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLoading = ref.watch(sessionLoadingProvider);
@@ -360,7 +368,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                           top: 100,
                           child: SizedBox(
                             width: 330,
-                            height: 129,
+                            height: 150,
                             child: _buildSelectedFriendsList(),
                           ),
                         ),
@@ -561,7 +569,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                                               // Задний план
                                               Expanded(
                                                 child: GestureDetector(
-                                                  //onTap: () => _editItem(index),
+                                                  onTap: () => _editItem(index),
                                                   child: Container(
                                                     height: 48,
                                                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
